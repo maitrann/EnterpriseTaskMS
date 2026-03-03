@@ -1,0 +1,12 @@
+@use './styles/variables';
+@use './styles/base';
+@use './styles/layout';
+@use './styles/components';
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: #f9fafb;
+  color: #111827;
+}

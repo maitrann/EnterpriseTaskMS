@@ -1,0 +1,18 @@
+<div class="page-header">
+  <div>
+    <h2>Departments</h2>
+    <p class="subtitle">Manage your company structure</p>
+  </div>
+
+  <button class="btn-primary">+ New Department</button>
+</div>
+
+<div class="department-grid">
+
+  <div class="department-card" *ngFor="let dept of departments">
+    <h3>{{ dept.name }}</h3>
+    <p>{{ dept.description }}</p>
+    <span>{{ dept.members }} members</span>
+  </div>
+
+</div>
