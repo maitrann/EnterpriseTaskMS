@@ -2,11 +2,9 @@
 @use './styles/base';
 @use './styles/layout';
 @use './styles/components';
+@use "tailwindcss";
 
 html, body {
-  height: 100%;
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-  background: #f9fafb;
-  color: #111827;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f8fafc;
 }

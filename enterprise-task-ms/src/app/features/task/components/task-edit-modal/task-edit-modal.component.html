@@ -1,0 +1,83 @@
+<div class="modal-backdrop">
+
+  <div class="modal">
+
+    <div class="modal-header">
+
+      <h3>Edit Task</h3>
+
+      <button (click)="close.emit()">✕</button>
+
+    </div>
+
+
+    <div class="modal-body">
+
+      <label>Title</label>
+      <input [(ngModel)]="task.title" />
+
+      <label>Description</label>
+      <textarea [(ngModel)]="task.description"></textarea>
+
+
+      <div class="grid">
+
+        <div>
+          <label>Priority</label>
+
+          <select [(ngModel)]="task.priorityId">
+            <option [value]="1">Low</option>
+            <option [value]="2">Medium</option>
+            <option [value]="3">High</option>
+            <option [value]="4">Critical</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Progress</label>
+
+          <input
+            type="range"
+            min="0"
+            max="100"
+            [(ngModel)]="task.progress"
+          />
+
+          {{task.progress}}%
+        </div>
+
+      </div>
+
+
+      <div class="grid">
+
+        <div>
+          <label>Start Date</label>
+          <input type="date" [(ngModel)]="task.startDate" />
+        </div>
+
+        <div>
+          <label>Due Date</label>
+          <input type="date" [(ngModel)]="task.dueDate" />
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="modal-footer">
+
+      <button class="btn-secondary" (click)="close.emit()">
+        Cancel
+      </button>
+
+      <button class="btn-primary" (click)="saveTask()">
+        Save
+      </button>
+
+    </div>
+
+  </div>
+
+</div>

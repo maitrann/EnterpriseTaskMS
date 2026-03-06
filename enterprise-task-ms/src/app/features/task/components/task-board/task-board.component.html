@@ -1,0 +1,66 @@
+<div class="board-wrapper">
+
+  <!-- HEADER -->
+  <div class="board-toolbar">
+
+    <input
+      type="text"
+      placeholder="Search task..."
+      (input)="search.set($any($event.target).value)"
+    />
+
+    <select (change)="filterPriority.set($any($event.target).value || null)">
+      <option value="">All Priority</option>
+      <option value="1">Low</option>
+      <option value="2">Medium</option>
+      <option value="3">High</option>
+      <option value="4">Critical</option>
+    </select>
+
+  </div>
+
+  <!-- BOARD -->
+  <div class="board">
+
+    <div
+      class="column"
+      *ngFor="let status of statuses"
+    >
+
+      <div class="column-header">
+        {{ status.name }}
+        <span class="count">
+          {{ getTasks(status.id).length }}
+        </span>
+      </div>
+
+      <div
+        cdkDropList
+        [cdkDropListData]="getTasks(status.id)"
+        class="task-list"
+        (cdkDropListDropped)="drop($event, status.id)"
+      >
+
+        <div
+          *ngFor="let task of getTasks(status.id)"
+          cdkDrag
+        >
+          <app-task-card
+            [task]="task"
+            (click)="openTask(task)"
+          ></app-task-card>
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+<app-task-detail-drawer
+  *ngIf="selectedTask()"
+  [task]="selectedTask()!"
+  (close)="closeDrawer()"
+/>

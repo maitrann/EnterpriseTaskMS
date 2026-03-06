@@ -1,0 +1,23 @@
+<div class="drawer">
+
+  <button class="close" (click)="closeDrawer()">✕</button>
+
+  <h2>{{task?.title}}</h2>
+
+  <p>
+    {{task?.description}}
+  </p>
+
+  <div class="info">
+
+    <p><b>Status:</b> {{task?.status}}</p>
+
+    <p><b>Priority:</b> {{task?.priority}}</p>
+
+    <p><b>Progress:</b> {{task?.progress}}%</p>
+
+    <p><b>Assignee:</b> {{task?.assignee}}</p>
+
+  </div>
+
+</div>

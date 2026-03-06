@@ -1,0 +1,81 @@
+.board-wrapper {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* toolbar */
+
+.board-toolbar {
+  padding: 12px 16px;
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.board-toolbar input {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+.board-toolbar select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+}
+
+/* board */
+
+.board {
+  flex: 1;
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+/* column */
+
+.column {
+  width: 280px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* column header */
+
+.column-header {
+  font-weight: 600;
+  padding: 6px 6px 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* task list */
+
+.task-list {
+  flex: 1;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* drag animation */
+
+.cdk-drag-preview {
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  border-radius: 8px;
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.cdk-drag-animating {
+  transition: transform 250ms ease;
+}

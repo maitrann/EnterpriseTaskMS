@@ -1,0 +1,38 @@
+.drawer{
+
+  position:fixed;
+
+  right:0;
+
+  top:0;
+
+  width:420px;
+
+  height:100vh;
+
+  background:white;
+
+  box-shadow:-10px 0 40px rgba(0,0,0,.1);
+
+  padding:24px;
+
+  z-index:200;
+
+}
+
+@keyframes slide{
+
+  from{ transform:translateX(100%) }
+  to{ transform:translateX(0) }
+
+}
+
+.drawer-header{
+
+  display:flex;
+
+  justify-content:space-between;
+
+  margin-bottom:20px;
+
+}

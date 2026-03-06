@@ -1,10 +1,25 @@
 export interface Task {
   id: number;
+  projectId: number;
+  parentTaskId?: number;
+
   title: string;
-  description: string;
-  status: 'todo' | 'inprogress' | 'done';
-  priority: 'low' | 'medium' | 'high';
-  departmentId: number;
-  assignedUserId: number;
-  deadline: Date;
+  description?: string;
+
+  statusId?: number;
+  priorityId?: number;
+
+  reporterId?: number;
+  assigneeId?: number;
+
+  startDate?: Date;
+  dueDate?: Date;
+
+  progress: number;
+
+  estimatedHours?: number;
+  actualHours?: number;
+
+  createdAt: Date;
+  updatedAt?: Date;
 }
