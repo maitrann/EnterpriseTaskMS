@@ -14,7 +14,7 @@ function randomDate(start: Date, end: Date) {
 
 const now = new Date();
 
-export const TASK_MOCK: Task[] = Array.from({ length: 100 }).map((_, i) => {
+export const TASK_MOCK: Task[] = Array.from({ length: 50 }).map((_, i) => {
 
   const start = randomDate(new Date(2026, 2, 1), new Date(2026, 2, 20));
   const due = randomDate(new Date(2026, 2, 20), new Date(2026, 3, 5));

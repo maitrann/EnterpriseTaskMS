@@ -27,3 +27,18 @@ export enum TaskPriorityEnum {
   High = 3,
   Critical = 4
 }
+
+export interface TaskTimelineItem {
+  id: number;
+  type: 'activity' | 'comment';
+
+  userId: number;
+
+  actionType?: string;
+  oldValue?: string;
+  newValue?: string;
+
+  comment?: string;
+
+  createdAt: Date;
+}

@@ -1,115 +1,133 @@
 import { Component, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
-  CdkDragDrop,
-  DragDropModule,
-  moveItemInArray,
-  transferArrayItem
+    CdkDragDrop,
+    DragDropModule,
+    moveItemInArray,
+    transferArrayItem
 } from '@angular/cdk/drag-drop';
 
 import { Task } from '../../../../core/models/task.model';
-import { TaskStatusEnum } from '../../../../core/models/task-detail-view.model';
-
 import { TASK_MOCK } from '../../task.mock';
 
 import { TaskCardComponent } from '../task-card/task-card.component';
 import { TaskDetailDrawerComponent } from '../task-detail-drawer/task-detail-drawer.component';
+import { TaskEditModalComponent } from '../task-edit-modal/task-edit-modal.component';
 
 @Component({
-  selector: 'app-task-board',
-  standalone: true,
-  imports: [
-    CommonModule,
-    DragDropModule,
-    TaskCardComponent,
-    TaskDetailDrawerComponent
-  ],
-  templateUrl: './task-board.component.html',
-  styleUrl: './task-board.component.scss'
+    selector: 'app-task-board',
+    standalone: true,
+    imports: [
+        CommonModule,
+        DragDropModule,
+        TaskCardComponent,
+        TaskDetailDrawerComponent,
+        TaskEditModalComponent
+    ],
+    templateUrl: './task-board.component.html',
+    styleUrl: './task-board.component.scss'
 })
 export class TaskBoardComponent {
 
-  tasks = signal<Task[]>(TASK_MOCK);
+    tasks = signal<Task[]>(TASK_MOCK);
 
-  selectedTask = signal<Task | null>(null);
+    selectedTask = signal<Task | null>(null); // drawer
+    editingTask = signal<Task | null>(null); // modal
 
-  // SEARCH
-  search = signal('');
+    search = signal('');
+    filterPriority = signal<number | null>(null);
 
-  // FILTER
-  filterPriority = signal<number | null>(null);
-  filterAssignee = signal<number | null>(null);
+    statuses = [
+        { id: 1, name: 'Todo' },
+        { id: 2, name: 'In Progress' },
+        { id: 3, name: 'Review' },
+        { id: 4, name: 'Done' }
+    ];
 
-  // STATUS LIST
-  statuses = [
-    { id: TaskStatusEnum.Todo, name: 'Todo' },
-    { id: TaskStatusEnum.InProgress, name: 'In Progress' },
-    { id: TaskStatusEnum.Review, name: 'Review' },
-    { id: TaskStatusEnum.Done, name: 'Done' }
-  ];
+    filteredTasks = computed(() => {
 
-  // FILTERED TASKS
-  filteredTasks = computed(() => {
+        const keyword = this.search().toLowerCase().trim();
+        const priority = this.filterPriority();
 
-    let list = this.tasks();
+        return this.tasks().filter(task => {
 
-    if (this.search()) {
-      list = list.filter(t =>
-        t.title.toLowerCase().includes(this.search().toLowerCase())
-      );
+            const matchSearch =
+                !keyword ||
+                task.title.toLowerCase().includes(keyword) ||
+                (task.description ?? '').toLowerCase().includes(keyword);
+
+            const matchPriority =
+                !priority || task.priorityId === priority;
+
+            return matchSearch && matchPriority;
+
+        });
+
+    });
+    onPriorityChange(event: Event) {
+        const value = (event.target as HTMLSelectElement).value;
+        this.filterPriority.set(value ? +value : null);
+    }
+    getTasks(statusId: number) {
+        return this.filteredTasks().filter(t => t.statusId === statusId);
     }
 
-    if (this.filterPriority()) {
-      list = list.filter(t => t.priorityId === this.filterPriority());
+    // open drawer
+    openTask(task: Task) {
+        this.selectedTask.set(task);
     }
 
-    if (this.filterAssignee()) {
-      list = list.filter(t => t.assigneeId === this.filterAssignee());
+    closeDrawer() {
+        this.selectedTask.set(null);
     }
 
-    return list;
-
-  });
-
-  // TASKS BY STATUS
-  getTasks(statusId: number) {
-    return this.filteredTasks().filter(t => t.statusId === statusId);
-  }
-
-  // OPEN TASK
-  openTask(task: Task) {
-    this.selectedTask.set(task);
-  }
-
-  closeDrawer() {
-    this.selectedTask.set(null);
-  }
-
-  // DRAG DROP
-  drop(event: CdkDragDrop<Task[]>, newStatus: number) {
-
-    if (event.previousContainer === event.container) {
-
-      moveItemInArray(
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
-
-      return;
+    // open edit modal
+    openEdit(task: Task) {
+        this.editingTask.set({ ...task }); // clone
     }
 
-    transferArrayItem(
-      event.previousContainer.data,
-      event.container.data,
-      event.previousIndex,
-      event.currentIndex
-    );
+    closeEditModal() {
+        this.editingTask.set(null);
+    }
 
-    const movedTask = event.container.data[event.currentIndex];
-    movedTask.statusId = newStatus;
+    // SAVE TASK
+    saveTask(updated: Task) {
 
-    this.tasks.update(t => [...t]);
-  }
+        const updatedTasks = this.tasks().map(t =>
+            t.id === updated.id ? updated : t
+        );
+
+        this.tasks.set(updatedTasks);
+
+        this.editingTask.set(null);
+    }
+
+    // DRAG DROP
+    drop(event: CdkDragDrop<Task[]>, newStatus: number) {
+
+        if (event.previousContainer === event.container) {
+
+            moveItemInArray(
+                event.container.data,
+                event.previousIndex,
+                event.currentIndex
+            );
+
+            return;
+        }
+
+        transferArrayItem(
+            event.previousContainer.data,
+            event.container.data,
+            event.previousIndex,
+            event.currentIndex
+        );
+
+        const movedTask = event.container.data[event.currentIndex];
+        movedTask.statusId = newStatus;
+
+        this.tasks.update(t => [...t]);
+
+    }
 
 }

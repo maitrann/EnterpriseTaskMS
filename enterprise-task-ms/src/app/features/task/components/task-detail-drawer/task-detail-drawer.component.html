@@ -1,23 +1,89 @@
+<div class="drawer-overlay" (click)="closeDrawer()"></div>
+
 <div class="drawer">
 
-  <button class="close" (click)="closeDrawer()">✕</button>
+  <div class="drawer-header">
 
-  <h2>{{task?.title}}</h2>
+    <h2>{{ task.title }}</h2>
 
-  <p>
-    {{task?.description}}
-  </p>
-
-  <div class="info">
-
-    <p><b>Status:</b> {{task?.status}}</p>
-
-    <p><b>Priority:</b> {{task?.priority}}</p>
-
-    <p><b>Progress:</b> {{task?.progress}}%</p>
-
-    <p><b>Assignee:</b> {{task?.assignee}}</p>
+    <button (click)="closeDrawer()">✕</button>
 
   </div>
+
+  <div class="drawer-body">
+
+    <!-- DESCRIPTION -->
+
+    <div class="section">
+
+      <h4>Description</h4>
+
+      <p>{{ task.description }}</p>
+
+    </div>
+
+
+    <!-- SUBTASKS -->
+
+    <div class="section">
+
+      <div class="subtask-header">
+
+        <h4>Checklist</h4>
+
+        <span class="progress">
+          {{ progress() }}%
+        </span>
+
+      </div>
+
+      <div class="subtask-list">
+
+        <div class="subtask-item" *ngFor="let sub of subtasks()">
+
+          <input type="checkbox" [checked]="sub.done" (change)="toggleSubtask(sub)" />
+
+          <!-- VIEW MODE -->
+
+          <span *ngIf="editingSubtaskId() !== sub.id" [class.done]="sub.done" (dblclick)="startEdit(sub)">
+            {{ sub.title }}
+          </span>
+
+
+          <!-- EDIT MODE -->
+
+          <input *ngIf="editingSubtaskId() === sub.id" class="subtask-edit" [value]="editingTitle()"
+            (input)="editingTitle.set($any($event.target).value)" (blur)="saveEdit(sub)" (keyup.enter)="saveEdit(sub)"
+            (keyup.escape)="cancelEdit()" />
+
+          <button class="delete" (click)="deleteSubtask(sub.id)">
+            ✕
+          </button>
+
+        </div>
+
+      </div>
+
+      <!-- ADD SUBTASK -->
+
+      <div class="add-subtask">
+
+        <input placeholder="Add subtask..." [ngModel]="newSubtaskTitle()" (ngModelChange)="newSubtaskTitle.set($event)"
+          (keyup.enter)="addSubtask()" />
+
+        <button (click)="addSubtask()">
+          Add
+        </button>
+
+      </div>
+
+    </div>
+  <div class="drawer-section">
+    <app-task-activity-timeline [activities]="taskActivities()">
+    </app-task-activity-timeline>
+
+  </div>
+  </div>
+
 
 </div>

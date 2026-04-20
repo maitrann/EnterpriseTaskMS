@@ -10,14 +10,21 @@
 
   <div class="meta">
 
-    <span class="priority">
-      {{task.priority}}
+    <span class="priority" [ngClass]="'priority-' + task.priorityId">
+      {{ getPriorityLabel(task.priorityId) }}
     </span>
 
     <span>
       {{task.progress}}%
     </span>
-
   </div>
-
+  <div class="due" *ngIf="task.dueDate" [ngClass]="getDueStatus()">
+    📅 {{task.dueDate | date:'MMM d'}}
+  </div>
+  <div class="progress-bar">
+    <div class="progress" [style.width.%]="task.progress"></div>
+  </div>
+  <button class="edit-btn" (click)="edit.emit(); $event.stopPropagation()">
+    Update
+  </button>
 </div>
