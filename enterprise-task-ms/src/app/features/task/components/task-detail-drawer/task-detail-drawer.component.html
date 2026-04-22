@@ -1,89 +1,135 @@
 <div class="drawer-overlay" (click)="closeDrawer()"></div>
 
-<div class="drawer">
+<aside class="drawer">
+  <header class="drawer-header">
+    <div class="header-copy">
+      <div class="header-topline">
+        <span class="ui-pill ui-pill-muted">{{ statusLabel }}</span>
+        <span class="priority-chip" [ngClass]="'priority-' + task.priorityId">{{ priorityLabel }}</span>
+      </div>
 
-  <div class="drawer-header">
-
-    <h2>{{ task.title }}</h2>
-
-    <button (click)="closeDrawer()">✕</button>
-
-  </div>
-
-  <div class="drawer-body">
-
-    <!-- DESCRIPTION -->
-
-    <div class="section">
-
-      <h4>Description</h4>
-
-      <p>{{ task.description }}</p>
-
+      <h2>{{ task.title }}</h2>
+      <p>{{ task.description || 'Công việc này chưa có mô tả chi tiết.' }}</p>
     </div>
 
+    <button class="close-btn" type="button" (click)="closeDrawer()">X</button>
+  </header>
 
-    <!-- SUBTASKS -->
+  <div class="drawer-body">
+    <section class="hero-panel surface-card-muted">
+      <div class="hero-main">
+        <div class="hero-progress">
+          <span class="hero-label">Tiến độ tổng thể</span>
+          <strong>{{ task.progress }}%</strong>
+        </div>
 
-    <div class="section">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="task.progress"></div>
+        </div>
+      </div>
 
-      <div class="subtask-header">
+      <div class="hero-side">
+        <div class="due-pill" [ngClass]="dueStatus" *ngIf="task.dueDate">
+          <span>{{ dueLabel }}</span>
+          <strong>{{ task.dueDate | date:'dd/MM/yyyy' }}</strong>
+        </div>
+      </div>
+    </section>
 
-        <h4>Checklist</h4>
+    <section class="overview-grid">
+      <article class="overview-item surface-card-muted" *ngFor="let item of overviewItems()">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+      </article>
+    </section>
 
-        <span class="progress">
-          {{ progress() }}%
-        </span>
+    <section class="detail-section surface-card-muted">
+      <div class="section-head">
+        <div>
+          <h3>Thông tin xử lý</h3>
+          <p>Cột mốc thời gian và tầm nhìn nhanh để theo dõi công việc.</p>
+        </div>
+      </div>
 
+      <div class="facts-grid">
+        <div class="fact-item">
+          <span>Ngày bắt đầu</span>
+          <strong>{{ task.startDate ? (task.startDate | date:'dd/MM/yyyy') : 'Chưa xác định' }}</strong>
+        </div>
+
+        <div class="fact-item">
+          <span>Hạn xử lý</span>
+          <strong>{{ task.dueDate ? (task.dueDate | date:'dd/MM/yyyy') : 'Chưa xác định' }}</strong>
+        </div>
+
+        <div class="fact-item">
+          <span>Checklist</span>
+          <strong>{{ progress() }}% hoàn tất</strong>
+        </div>
+
+        <div class="fact-item">
+          <span>Cập nhật gần nhất</span>
+          <strong>{{ task.updatedAt ? (task.updatedAt | date:'dd/MM/yyyy') : 'Mới tạo' }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="detail-section surface-card-muted">
+      <div class="section-head">
+        <div>
+          <h3>Checklist thực hiện</h3>
+          <p>Giữ checklist gọn, rõ và cập nhật xong đến đâu đánh dấu đến đó.</p>
+        </div>
+
+        <span class="ui-pill ui-pill-info">{{ progress() }}%</span>
       </div>
 
       <div class="subtask-list">
-
         <div class="subtask-item" *ngFor="let sub of subtasks()">
-
           <input type="checkbox" [checked]="sub.done" (change)="toggleSubtask(sub)" />
 
-          <!-- VIEW MODE -->
-
-          <span *ngIf="editingSubtaskId() !== sub.id" [class.done]="sub.done" (dblclick)="startEdit(sub)">
+          <span
+            *ngIf="editingSubtaskId() !== sub.id"
+            class="subtask-text"
+            [class.done]="sub.done"
+            (dblclick)="startEdit(sub)">
             {{ sub.title }}
           </span>
 
-
-          <!-- EDIT MODE -->
-
-          <input *ngIf="editingSubtaskId() === sub.id" class="subtask-edit" [value]="editingTitle()"
-            (input)="editingTitle.set($any($event.target).value)" (blur)="saveEdit(sub)" (keyup.enter)="saveEdit(sub)"
+          <input
+            *ngIf="editingSubtaskId() === sub.id"
+            class="subtask-edit"
+            [value]="editingTitle()"
+            (input)="editingTitle.set($any($event.target).value)"
+            (blur)="saveEdit(sub)"
+            (keyup.enter)="saveEdit(sub)"
             (keyup.escape)="cancelEdit()" />
 
-          <button class="delete" (click)="deleteSubtask(sub.id)">
-            ✕
-          </button>
-
+          <button class="subtask-delete" type="button" (click)="deleteSubtask(sub.id)">Xóa</button>
         </div>
-
       </div>
-
-      <!-- ADD SUBTASK -->
 
       <div class="add-subtask">
-
-        <input placeholder="Add subtask..." [ngModel]="newSubtaskTitle()" (ngModelChange)="newSubtaskTitle.set($event)"
+        <input
+          class="add-input"
+          placeholder="Thêm checklist mới..."
+          [ngModel]="newSubtaskTitle()"
+          (ngModelChange)="newSubtaskTitle.set($event)"
           (keyup.enter)="addSubtask()" />
 
-        <button (click)="addSubtask()">
-          Add
-        </button>
+        <button class="ui-button-primary" type="button" (click)="addSubtask()">Thêm</button>
+      </div>
+    </section>
 
+    <section class="detail-section surface-card-muted">
+      <div class="section-head">
+        <div>
+          <h3>Lịch sử hoạt động</h3>
+          <p>Theo dõi các thay đổi quan trọng và cập nhật thao tác trên công việc.</p>
+        </div>
       </div>
 
-    </div>
-  <div class="drawer-section">
-    <app-task-activity-timeline [activities]="taskActivities()">
-    </app-task-activity-timeline>
-
+      <app-task-activity-timeline [activities]="taskActivities()"></app-task-activity-timeline>
+    </section>
   </div>
-  </div>
-
-
-</div>
+</aside>

@@ -1,40 +1,22 @@
 <div class="activity-wrapper">
-
-  <div class="activity-title">
-    Activity
-  </div>
-
   <div class="activity-list">
-
-    <div
-      class="activity-item"
-      *ngFor="let a of activitiesSorted()"
-    >
-
+    <article class="activity-item" *ngFor="let activity of activitiesSorted()">
       <div class="activity-dot"></div>
 
       <div class="activity-content">
-
         <div class="activity-main">
-          <strong>User {{a.userId}}</strong>
-          {{ getActionText(a) }}
+          <strong>User {{ activity.userId }}</strong>
+          <span>{{ getActionText(activity) }}</span>
         </div>
 
-        <div
-          class="activity-change"
-          *ngIf="a.oldValue || a.newValue"
-        >
-          {{a.oldValue}} → {{a.newValue}}
+        <div class="activity-change" *ngIf="activity.oldValue || activity.newValue">
+          <span>{{ activity.oldValue || 'Truoc do' }}</span>
+          <span class="change-arrow">-></span>
+          <span>{{ activity.newValue || 'Gia tri moi' }}</span>
         </div>
 
-        <div class="activity-time">
-          {{ formatTime(a.createdAt) }}
-        </div>
-
+        <div class="activity-time">{{ formatTime(activity.createdAt) }}</div>
       </div>
-
-    </div>
-
+    </article>
   </div>
-
 </div>

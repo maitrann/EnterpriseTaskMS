@@ -5,6 +5,7 @@
 @use "tailwindcss";
 
 html, body {
-  font-family: Inter, system-ui, sans-serif;
-  background: #f8fafc;
+  font-family: "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;
+  background: var(--etms-bg-app);
+  color: var(--etms-text-primary);
 }

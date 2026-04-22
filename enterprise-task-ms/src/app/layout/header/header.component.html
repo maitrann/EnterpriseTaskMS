@@ -1,21 +1,42 @@
 <header class="header">
+  <div class="brand-block">
+    <div class="brand-mark">ET</div>
 
-  <div class="logo">
-    ETMS
+    <div class="brand-copy">
+      <p class="eyebrow">Enterprise Task</p>
+      <h1>Dieu phoi cong viec van phong</h1>
+    </div>
   </div>
 
-  <div class="search">
-    <input type="text" placeholder="Search task..." />
+  <div class="header-center">
+    <label class="search-shell" aria-label="Tim kiem cong viec">
+      <span class="search-icon">⌕</span>
+      <input type="text" placeholder="Tim theo tieu de, phong ban hoac deadline..." />
+    </label>
+
+    <div class="stats-strip">
+      <div class="stat-chip" *ngFor="let stat of quickStats">
+        <span class="stat-value">{{ stat.value }}</span>
+        <span class="stat-label">{{ stat.label }}</span>
+      </div>
+    </div>
   </div>
 
-  <div class="user">
+  <div class="header-actions">
+    <button class="action-btn" type="button" aria-label="Thong bao">
+      <span class="action-icon">!</span>
+      <span class="action-badge">3</span>
+    </button>
 
-    <span class="icon">🔔</span>
+    <div class="user-card">
+      <div class="user-copy">
+        <strong>{{ userProfile().name }}</strong>
+        <span>{{ userProfile().role }}</span>
+      </div>
 
-    <div class="avatar">
-      TT
+      <div class="avatar">{{ userProfile().initials }}</div>
     </div>
 
+    <button class="logout-btn" type="button" (click)="logout()">Logout</button>
   </div>
-
 </header>

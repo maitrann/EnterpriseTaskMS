@@ -1,23 +1,45 @@
 <aside class="sidebar">
+  <section class="workspace-card">
+    <p class="workspace-label">Khong gian lam viec</p>
+    <h2>Khoi van phong</h2>
+    <span class="workspace-meta">15 phong ban dang theo doi tien do</span>
+  </section>
 
-  <nav>
+  <nav class="menu">
+    <section class="menu-group" *ngFor="let group of menuGroups">
+      <p class="group-title">{{ group.title }}</p>
 
-    <a routerLink="/dashboard" routerLinkActive="active">
-      Dashboard
-    </a>
+      <ng-container *ngFor="let item of group.items">
+        <a
+          *ngIf="item.route; else disabledItem"
+          class="menu-item"
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }">
+          <span class="item-copy">
+            <strong>{{ item.label }}</strong>
+            <small>{{ item.caption }}</small>
+          </span>
 
-    <a routerLink="/tasks" routerLinkActive="active">
-      Tasks
-    </a>
+          <span class="status-pill">Live</span>
+        </a>
 
-    <a routerLink="/departments" routerLinkActive="active">
-      Departments
-    </a>
+        <ng-template #disabledItem>
+          <div class="menu-item is-disabled">
+            <span class="item-copy">
+              <strong>{{ item.label }}</strong>
+              <small>{{ item.caption }}</small>
+            </span>
 
-    <a routerLink="/reports" routerLinkActive="active">
-      Reports
-    </a>
-
+            <span class="status-pill muted">Soon</span>
+          </div>
+        </ng-template>
+      </ng-container>
+    </section>
   </nav>
 
+  <section class="support-card">
+    <span class="support-tag">Mock mode</span>
+    <p>UI hien dang dung du lieu gia lap de chot luong va bo cuc truoc khi noi voi C# backend.</p>
+  </section>
 </aside>

@@ -1,15 +1,33 @@
-$bg-main: #f8fafc;
-$bg-card: #ffffff;
+:root {
+  --etms-bg-app: #f8fafc;
+  --etms-bg-app-soft: #f3f6fb;
+  --etms-surface: #ffffff;
+  --etms-surface-soft: rgba(255, 255, 255, 0.82);
+  --etms-surface-muted: rgba(248, 250, 252, 0.92);
+  --etms-text-primary: #0f172a;
+  --etms-text-secondary: #64748b;
+  --etms-text-muted: #475569;
+  --etms-primary: #2563eb;
+  --etms-primary-soft: #eff6ff;
+  --etms-border: rgba(148, 163, 184, 0.16);
+  --etms-border-strong: rgba(148, 163, 184, 0.24);
+  --etms-success-soft: #ecfdf5;
+  --etms-warning-soft: #fff7ed;
+  --etms-danger-soft: #fef2f2;
+  --etms-radius-xl: 30px;
+  --etms-radius-lg: 24px;
+  --etms-radius-md: 18px;
+  --etms-shadow-soft: 0 24px 48px rgba(15, 23, 42, 0.06);
+  --etms-shadow-card: 0 12px 24px rgba(15, 23, 42, 0.05);
+}
 
-$text-primary: #0f172a;
-$text-secondary: #64748b;
-
-$primary: #4f46e5;
-
-$border-subtle: #f1f5f9;
-
-$radius-xl: 20px;
-$radius-lg: 16px;
-
-$shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.04);
+$bg-main: var(--etms-bg-app);
+$bg-card: var(--etms-surface);
+$text-primary: var(--etms-text-primary);
+$text-secondary: var(--etms-text-secondary);
+$primary: var(--etms-primary);
+$border-subtle: var(--etms-border);
+$radius-xl: var(--etms-radius-xl);
+$radius-lg: var(--etms-radius-lg);
+$shadow-soft: var(--etms-shadow-soft);
 $shadow-hover: 0 30px 60px rgba(0, 0, 0, 0.06);

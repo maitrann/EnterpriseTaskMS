@@ -21,6 +21,7 @@ export const TASK_MOCK: Task[] = Array.from({ length: 50 }).map((_, i) => {
 
   return {
     id: i + 1,
+    code: `CV-${String(i + 1).padStart(4, '0')}`,
 
     projectId: 1,
 

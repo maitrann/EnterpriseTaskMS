@@ -1,0 +1,296 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <section class="modal" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="header-copy">
+        <div class="header-topline">
+          <span class="ui-pill ui-pill-info">Tạo mới</span>
+          <span class="ui-pill ui-pill-muted">{{ taskCode }}</span>
+        </div>
+
+        <h3>Tạo công việc mới</h3>
+        <p>Mô phỏng đầy đủ các trường chính theo đặc tả để sau này đổi qua API .NET cho gọn.</p>
+      </div>
+
+      <button class="close-btn" type="button" (click)="close.emit()">X</button>
+    </header>
+
+    <div class="modal-body">
+      <section class="hero-strip surface-card-muted">
+        <article class="hero-item">
+          <span>Mã công việc</span>
+          <strong>{{ taskCode }}</strong>
+        </article>
+
+        <article class="hero-item">
+          <span>Trạng thái khởi tạo</span>
+          <strong>Mới tạo</strong>
+        </article>
+
+        <article class="hero-item">
+          <span>Người tạo mock</span>
+          <strong>Trần Minh Quân</strong>
+        </article>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Thông tin cơ bản</h4>
+          <p>Tập hợp nhóm trường cốt lõi để mô tả phạm vi và nguồn phát sinh của công việc.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack field-span-2">
+            <label class="field-label" for="task-title">Tên công việc</label>
+            <input
+              id="task-title"
+              class="text-field"
+              [ngModel]="draft().title"
+              (ngModelChange)="updateField('title', $event)"
+              placeholder="Ví dụ: Tổng hợp báo cáo vận hành quý 2" />
+          </div>
+
+          <div class="field-stack field-span-2">
+            <label class="field-label" for="task-description">Mô tả chi tiết</label>
+            <textarea
+              id="task-description"
+              class="text-field textarea-field"
+              [ngModel]="draft().description"
+              (ngModelChange)="updateField('description', $event)"
+              placeholder="Nêu rõ mục tiêu, kết quả cần bàn giao và ghi chú bối cảnh..."></textarea>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Loại công việc</label>
+            <app-custom-select
+              [options]="taskTypeOptions()"
+              [value]="draft().taskType"
+              helperLabel="Chọn một mục"
+              placeholder="Chọn loại công việc"
+              searchPlaceholder="Tìm loại công việc..."
+              (valueChange)="updateField('taskType', $any($event))"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Nguồn phát sinh</label>
+            <app-custom-select
+              [options]="sourceOptions()"
+              [value]="draft().source"
+              helperLabel="Chọn một mục"
+              placeholder="Chọn nguồn phát sinh"
+              searchPlaceholder="Tìm nguồn phát sinh..."
+              (valueChange)="updateField('source', $any($event))"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Công việc cha</label>
+            <app-custom-select
+              [options]="parentSelectOptions()"
+              [value]="draft().parentTaskId"
+              helperLabel="Tùy chọn"
+              placeholder="Không có công việc cha"
+              searchPlaceholder="Tìm công việc cha..."
+              (valueChange)="updateField('parentTaskId', $any($event) ?? null)"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Phòng ban phụ trách</label>
+            <app-custom-select
+              [options]="departmentSelectOptions()"
+              [value]="draft().departmentId"
+              helperLabel="Chọn một phòng ban"
+              placeholder="Chọn phòng ban"
+              searchPlaceholder="Tìm phòng ban..."
+              (valueChange)="updateField('departmentId', $any($event) ?? null)"></app-custom-select>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Phân công xử lý</h4>
+          <p>Toàn bộ chọn người giờ dùng chung một bộ custom dropdown để đồng nhất giao diện.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label">Người xử lý chính</label>
+            <app-custom-select
+              [options]="assigneeOptions()"
+              [value]="draft().assigneeId"
+              helperLabel="Chọn một người"
+              placeholder="Chưa chọn người xử lý chính"
+              searchPlaceholder="Tìm người xử lý..."
+              (valueChange)="updateField('assigneeId', $any($event) ?? null)"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Người phối hợp</label>
+            <app-custom-select
+              [options]="collaboratorOptions()"
+              [value]="draft().collaboratorIds"
+              [multiple]="true"
+              helperLabel="Chọn nhiều người"
+              placeholder="Chưa chọn người phối hợp"
+              searchPlaceholder="Tìm người phối hợp..."
+              (valueChange)="updateField('collaboratorIds', $any($event) ?? [])"></app-custom-select>
+          </div>
+
+          <div class="field-stack field-span-2">
+            <label class="field-label">Người theo dõi</label>
+            <app-custom-select
+              [options]="watcherOptions()"
+              [value]="draft().watcherIds"
+              [multiple]="true"
+              helperLabel="Chọn nhiều người"
+              placeholder="Chưa chọn người theo dõi"
+              searchPlaceholder="Tìm người theo dõi..."
+              (valueChange)="updateField('watcherIds', $any($event) ?? [])"></app-custom-select>
+          </div>
+        </div>
+
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Timeline và mức độ ưu tiên</h4>
+          <p>Cân đối deadline, mức ưu tiên, mức độ khẩn và mức độ bảo mật ngay từ lúc tạo.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label" for="start-date">Ngày bắt đầu</label>
+            <input
+              id="start-date"
+              class="text-field"
+              type="date"
+              [ngModel]="draft().startDate"
+              (ngModelChange)="updateField('startDate', $event)" />
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="due-date">Deadline</label>
+            <input
+              id="due-date"
+              class="text-field"
+              type="date"
+              [ngModel]="draft().dueDate"
+              (ngModelChange)="updateField('dueDate', $event)" />
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức ưu tiên</label>
+            <app-custom-select
+              [options]="priorityOptions()"
+              [value]="draft().priorityId"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức ưu tiên"
+              searchPlaceholder="Tìm mức ưu tiên..."
+              (valueChange)="updatePriority($event)"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức độ khẩn</label>
+            <app-custom-select
+              [options]="urgencyOptions()"
+              [value]="draft().urgencyLevel"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức độ khẩn"
+              searchPlaceholder="Tìm mức độ khẩn..."
+              (valueChange)="updateField('urgencyLevel', $any($event))"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức độ bảo mật</label>
+            <app-custom-select
+              [options]="securityOptions()"
+              [value]="draft().securityLevel"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức độ bảo mật"
+              searchPlaceholder="Tìm mức độ bảo mật..."
+              (valueChange)="updateField('securityLevel', $any($event))"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="estimated-hours">Dự kiến (giờ)</label>
+            <input
+              id="estimated-hours"
+              class="text-field"
+              type="number"
+              min="0"
+              [ngModel]="draft().estimatedHours"
+              (ngModelChange)="updateField('estimatedHours', $event === '' ? null : $any($event))" />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Đính kèm và gắn thẻ</h4>
+          <p>Đang ở chế độ mock nên mình cho phép thêm tên file/tag để test workflow hiển thị.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label" for="attachment-name">File đính kèm</label>
+            <div class="token-input-row">
+              <input
+                id="attachment-name"
+                class="text-field"
+                [ngModel]="noteFields.attachment()"
+                (ngModelChange)="noteFields.attachment.set($event)"
+                (keyup.enter)="addToken('attachmentNames', 'attachment')"
+                placeholder="Ví dụ: bien-ban-hop.docx" />
+              <button class="ui-button-ghost" type="button" (click)="addToken('attachmentNames', 'attachment')">
+                Thêm file
+              </button>
+            </div>
+
+            <div class="token-list" *ngIf="draft().attachmentNames.length">
+              <button
+                class="token-chip"
+                type="button"
+                *ngFor="let attachment of draft().attachmentNames"
+                (click)="removeToken('attachmentNames', attachment)">
+                {{ attachment }} <span>x</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="tag-name">Thẻ (tag)</label>
+            <div class="token-input-row">
+              <input
+                id="tag-name"
+                class="text-field"
+                [ngModel]="noteFields.tag()"
+                (ngModelChange)="noteFields.tag.set($event)"
+                (keyup.enter)="addToken('tags', 'tag')"
+                placeholder="Ví dụ: Báo cáo tuần" />
+              <button class="ui-button-ghost" type="button" (click)="addToken('tags', 'tag')">Thêm tag</button>
+            </div>
+
+            <div class="token-list" *ngIf="draft().tags.length">
+              <button
+                class="token-chip token-chip-tag"
+                type="button"
+                *ngFor="let tag of draft().tags"
+                (click)="removeToken('tags', tag)">
+                {{ tag }} <span>x</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="modal-footer">
+      <p class="validation-message" *ngIf="validationMessage()">{{ validationMessage() }}</p>
+      <div class="footer-actions">
+        <button class="ui-button-ghost" type="button" (click)="close.emit()">Đóng</button>
+        <button class="ui-button-primary" type="button" [disabled]="!!validationMessage()" (click)="createTask()">
+          Tạo công việc
+        </button>
+      </div>
+    </footer>
+  </section>
+</div>

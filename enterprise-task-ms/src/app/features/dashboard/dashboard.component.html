@@ -1,0 +1,101 @@
+<div class="dashboard-shell">
+  <section class="hero surface-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Dashboard dieu hanh</p>
+      <h2>Goc nhin tong quan de bat dau workflow sau khi dang nhap</h2>
+      <p>
+        Man nay dung mock data de minh test luong vao he thong, xem KPI nhanh va dieu huong sang
+        board task hoac cac phan he tiep theo.
+      </p>
+    </div>
+
+    <div class="hero-actions">
+      <a class="ui-button-primary" routerLink="/tasks">Mo task board</a>
+      <a class="ui-button-ghost" routerLink="/departments">Xem phong ban</a>
+    </div>
+  </section>
+
+  <section class="kpi-grid">
+    <article class="kpi-card surface-card-muted" *ngFor="let item of kpis()" [ngClass]="'tone-' + item.tone">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.value }}</strong>
+      <small>{{ item.helper }}</small>
+    </article>
+  </section>
+
+  <section class="dashboard-grid">
+    <article class="panel surface-card">
+      <div class="panel-head">
+        <div>
+          <h3>Canh bao deadline</h3>
+          <p>Phan bo cong viec theo muc do sat deadline de uu tien xu ly.</p>
+        </div>
+      </div>
+
+      <div class="bucket-list">
+        <div class="bucket-item" *ngFor="let bucket of deadlineBuckets()" [ngClass]="bucket.tone">
+          <span>{{ bucket.label }}</span>
+          <strong>{{ bucket.value }}</strong>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel surface-card">
+      <div class="panel-head">
+        <div>
+          <h3>Tai theo phong ban</h3>
+          <p>So sanh khoi luong active va completed de nhin nhanh diem nghen.</p>
+        </div>
+      </div>
+
+      <div class="department-list">
+        <div class="department-row" *ngFor="let department of departmentLoad()">
+          <div class="department-copy">
+            <strong>{{ department.name }}</strong>
+            <span>{{ department.activeTasks }} active · {{ department.completedTasks }} done</span>
+          </div>
+
+          <div class="department-sla">{{ department.sla }}</div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="panel surface-card">
+    <div class="panel-head">
+      <div>
+        <h3>Cong viec can chu y</h3>
+        <p>Lay tu mock data de tao cam giac dashboard dieu hanh sau login.</p>
+      </div>
+      <a class="text-link" routerLink="/tasks">Xem tat ca</a>
+    </div>
+
+    <div class="spotlight-list">
+      <article class="spotlight-card" *ngFor="let task of spotlightTasks()">
+        <div class="spotlight-main">
+          <div class="spotlight-topline">
+            <span class="task-badge" [ngClass]="'priority-' + task.priorityId">
+              {{ getPriorityLabel(task.priorityId) }}
+            </span>
+            <span class="task-id">#{{ task.id }}</span>
+          </div>
+
+          <h4>{{ task.title }}</h4>
+          <p>{{ task.description }}</p>
+        </div>
+
+        <div class="spotlight-meta">
+          <div>
+            <span>Tien do</span>
+            <strong>{{ task.progress }}%</strong>
+          </div>
+
+          <div>
+            <span>Deadline</span>
+            <strong>{{ task.dueDate ? (task.dueDate | date:'dd/MM/yyyy') : 'Chua co' }}</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>

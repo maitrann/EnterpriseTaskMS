@@ -1,11 +1,113 @@
-.card {
-  background: white;
-  border-radius: 18px;
-  padding: 28px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-  transition: 0.2s ease;
+.surface-card {
+  border: 1px solid var(--etms-border);
+  border-radius: var(--etms-radius-xl);
+  background: var(--etms-surface-soft);
+  box-shadow: var(--etms-shadow-soft);
 }
 
-.card:hover {
-  transform: translateY(-4px);
+.surface-card-muted {
+  border: 1px solid var(--etms-border);
+  border-radius: var(--etms-radius-lg);
+  background: var(--etms-surface-muted);
+}
+
+.ui-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  border: 1px solid var(--etms-border-strong);
+  border-radius: var(--etms-radius-md);
+  background: var(--etms-surface);
+}
+
+.ui-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ui-pill-info {
+  background: var(--etms-primary-soft);
+  color: #1d4ed8;
+}
+
+.ui-pill-muted {
+  background: #f1f5f9;
+  color: var(--etms-text-muted);
+}
+
+.ui-button-ghost {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--etms-border-strong);
+  border-radius: 999px;
+  background: var(--etms-surface);
+  color: var(--etms-text-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ui-button-primary {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--etms-text-primary);
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.page-eyebrow {
+  color: #2563eb;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ui-close-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: #f1f5f9;
+  color: var(--etms-text-primary);
+  cursor: pointer;
+}
+
+.form-field-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-field-stack > span {
+  color: var(--etms-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.form-control {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--etms-border-strong);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--etms-text-primary);
+  outline: 0;
+}
+
+.form-control.multiline {
+  min-height: 108px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  resize: vertical;
 }

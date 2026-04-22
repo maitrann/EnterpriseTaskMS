@@ -1,18 +1,70 @@
-<div class="page-header">
-  <div>
-    <h2>Departments</h2>
-    <p class="subtitle">Manage your company structure</p>
-  </div>
+<div class="department-shell">
+  <section class="hero surface-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Phong ban va co cau</p>
+      <h2>Theo doi tai van hanh va dau moi phu trach cua tung bo phan</h2>
+      <p>
+        Man nay hien dang dung mock data de chot bo cuc quan ly co cau to chuc, muc tai cong viec va
+        thong tin dieu phoi noi bo truoc khi noi backend.
+      </p>
+    </div>
 
-  <button class="btn-primary">+ New Department</button>
-</div>
+    <div class="hero-action">
+      <button class="ui-button-primary" type="button">Them phong ban mock</button>
+    </div>
+  </section>
 
-<div class="department-grid">
+  <section class="summary-strip">
+    <article class="summary-card surface-card-muted" *ngFor="let item of summaryCards()">
+      <span>{{ item.label }}</span>
+      <strong>{{ item.value }}</strong>
+      <small>{{ item.helper }}</small>
+    </article>
+  </section>
 
-  <div class="department-card" *ngFor="let dept of departments">
-    <h3>{{ dept.name }}</h3>
-    <p>{{ dept.description }}</p>
-    <span>{{ dept.members }} members</span>
-  </div>
+  <section class="department-grid">
+    <article class="department-card surface-card" *ngFor="let department of departments()" [ngClass]="'tone-' + department.tone">
+      <div class="card-head">
+        <div>
+          <p class="mini-label">Department</p>
+          <h3>{{ department.name }}</h3>
+        </div>
 
+        <span class="sla-pill">{{ department.sla }}</span>
+      </div>
+
+      <p class="card-desc">{{ department.description }}</p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span>Thanh vien</span>
+          <strong>{{ department.members }}</strong>
+        </div>
+
+        <div class="meta-item">
+          <span>Task active</span>
+          <strong>{{ department.activeTasks }}</strong>
+        </div>
+
+        <div class="meta-item">
+          <span>Task done</span>
+          <strong>{{ department.completedTasks }}</strong>
+        </div>
+
+        <div class="meta-item">
+          <span>Dau moi</span>
+          <strong>{{ department.lead }}</strong>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <div class="progress-copy">
+          <span>Ty le hoan tat</span>
+          <strong>{{ department.completedTasks }}/{{ department.completedTasks + department.activeTasks }}</strong>
+        </div>
+
+        <button class="ui-button-ghost" type="button">Xem chi tiet</button>
+      </div>
+    </article>
+  </section>
 </div>

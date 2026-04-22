@@ -1,30 +1,55 @@
-<div class="card" (click)="openDetail()">
-
-  <div class="title">
-    {{task.title}}
+<article class="card" (click)="openDetail()">
+  <div class="card-topline">
+    <span class="priority" [ngClass]="'priority-' + task.priorityId">{{ priorityLabel }}</span>
+    <span class="task-code">{{ task.code || ('#' + task.id) }}</span>
   </div>
 
-  <div class="desc">
-    {{task.description}}
+  <div class="content-block">
+    <h4 class="title">{{ task.title }}</h4>
+    <p class="desc">{{ task.description || 'Chưa có mô tả cho công việc này.' }}</p>
   </div>
 
-  <div class="meta">
+  <div class="meta-grid">
+    <div class="meta-item">
+      <span class="meta-label">Phụ trách</span>
+      <strong>{{ assigneeLabel }}</strong>
+    </div>
 
-    <span class="priority" [ngClass]="'priority-' + task.priorityId">
-      {{ getPriorityLabel(task.priorityId) }}
-    </span>
+    <div class="meta-item">
+      <span class="meta-label">Tiến độ</span>
+      <strong>{{ task.progress }}%</strong>
+    </div>
 
-    <span>
-      {{task.progress}}%
-    </span>
+    <div class="meta-item">
+      <span class="meta-label">Dự kiến</span>
+      <strong>{{ estimatedLabel }}</strong>
+    </div>
+
+    <div class="meta-item">
+      <span class="meta-label">Thực tế</span>
+      <strong>{{ actualLabel }}</strong>
+    </div>
   </div>
-  <div class="due" *ngIf="task.dueDate" [ngClass]="getDueStatus()">
-    📅 {{task.dueDate | date:'MMM d'}}
+
+  <div class="progress-block">
+    <div class="progress-copy">
+      <span>Mức độ hoàn thành</span>
+      <strong>{{ task.progress }}%</strong>
+    </div>
+
+    <div class="progress-bar">
+      <div class="progress" [style.width.%]="task.progress"></div>
+    </div>
   </div>
-  <div class="progress-bar">
-    <div class="progress" [style.width.%]="task.progress"></div>
+
+  <div class="card-footer">
+    <div class="due" *ngIf="task.dueDate" [ngClass]="dueStatus">
+      <span class="due-label">{{ dueLabel }}</span>
+      <strong>{{ task.dueDate | date:'dd/MM' }}</strong>
+    </div>
+
+    <button class="edit-btn" type="button" (click)="edit.emit(); $event.stopPropagation()">
+      Cập nhật
+    </button>
   </div>
-  <button class="edit-btn" (click)="edit.emit(); $event.stopPropagation()">
-    Update
-  </button>
-</div>
+</article>

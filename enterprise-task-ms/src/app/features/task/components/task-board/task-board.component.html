@@ -1,55 +1,129 @@
-<div class="board-wrapper">
-
-  <!-- HEADER -->
-  <div class="board-toolbar">
-
-    <input class="search-input" type="text" placeholder="Search task..."
-      (input)="search.set($any($event.target).value)" />
-
-    <select class="priority-filter" (change)="onPriorityChange($event)">
-      <option value="">All Priority</option>
-      <option value="1">Low</option>
-      <option value="2">Medium</option>
-      <option value="3">High</option>
-      <option value="4">Critical</option>
-    </select>
-
-  </div>
-
-  <!-- BOARD -->
-  <div class="board">
-
-    <div class="column" *ngFor="let status of statuses">
-
-      <div class="column-header">
-        {{ status.name }}
-        <span class="count">
-          {{ getTasks(status.id).length }}
-        </span>
-      </div>
-
-      <div cdkDropList [cdkDropListData]="getTasks(status.id)" class="task-list"
-        (cdkDropListDropped)="drop($event, status.id)">
-
-        <div *ngFor="let task of getTasks(status.id)" cdkDrag>
-          <app-task-card [task]="task" (click)="openTask(task)" (edit)="openEdit(task)"></app-task-card>
-        </div>
-
-      </div>
-
+<div class="board-shell">
+  <section class="board-hero surface-card">
+    <div class="hero-copy">
+      <p class="hero-kicker">Trung tâm điều phối</p>
+      <h2>Điều phối công việc liên phòng ban theo từng trạng thái</h2>
+      <p class="hero-desc">
+        Theo dõi công việc đang xử lý, ưu tiên các việc trễ hạn và cập nhật nhanh tiến độ từ
+        mock data trước khi nối backend.
+      </p>
     </div>
 
-  </div>
+    <div class="hero-summary">
+      <article class="summary-card surface-card-muted" *ngFor="let card of summaryCards()">
+        <span class="summary-label">{{ card.label }}</span>
+        <strong class="summary-value">{{ card.value }}</strong>
+        <small class="summary-helper">{{ card.helper }}</small>
+      </article>
+    </div>
+  </section>
 
+  <section class="board-toolbar surface-card">
+    <div class="toolbar-main">
+      <label class="search-field ui-field" aria-label="Tìm công việc">
+        <span class="field-icon">⌕</span>
+        <input
+          class="search-input"
+          type="text"
+          [value]="search()"
+          placeholder="Tìm theo tên công việc hoặc mô tả..."
+          (input)="search.set($any($event.target).value)" />
+      </label>
+
+      <div class="select-field">
+        <app-custom-select
+          [options]="priorityFilterOptions"
+          [value]="filterPriority()"
+          helperLabel="Mức ưu tiên"
+          placeholder="Tất cả"
+          searchPlaceholder="Tìm mức ưu tiên..."
+          (valueChange)="onPriorityChange($event)"></app-custom-select>
+      </div>
+    </div>
+
+    <div class="toolbar-meta">
+      <span class="result-pill ui-pill ui-pill-info">{{ filteredTasks().length }} công việc</span>
+      <button class="ui-button-primary" type="button" (click)="openCreateModal()">Tạo công việc</button>
+      <button class="ghost-btn ui-button-ghost" type="button" (click)="clearFilters()">Xóa bộ lọc</button>
+    </div>
+  </section>
+
+  <section class="status-preset-bar surface-card">
+    <div class="preset-copy">
+      <strong>Chế độ hiển thị trạng thái</strong>
+      <span>Giữ Kanban nhưng gom các cột theo nhóm để nhìn và thao tác đỡ loãng hơn.</span>
+    </div>
+
+    <div class="preset-chips">
+      <button
+        type="button"
+        class="preset-chip"
+        *ngFor="let option of statusViewOptions"
+        [class.active]="statusView() === option.value"
+        (click)="setStatusView(option.value)">
+        <strong>{{ option.label }}</strong>
+        <span>{{ option.helper }}</span>
+      </button>
+    </div>
+  </section>
+
+  <section class="board">
+    <article class="column" *ngFor="let status of visibleStatuses()">
+      <header
+        class="column-header"
+        [style.background]="status.bg"
+        [style.border-color]="status.border">
+        <div class="column-title">
+          <div class="title-row">
+            <h3>{{ status.label }}</h3>
+            <span class="count">{{ getTasks(status.id).length }}</span>
+          </div>
+
+          <p>{{ status.hint }}</p>
+        </div>
+      </header>
+
+      <div
+        cdkDropList
+        [id]="getDropListId(status.id)"
+        [cdkDropListData]="getTasks(status.id)"
+        [cdkDropListConnectedTo]="getConnectedDropLists(status.id)"
+        class="task-list"
+        (cdkDropListDropped)="drop($event, status.id)">
+        <ng-container *ngIf="getTasks(status.id).length; else emptyState">
+          <div class="task-item" *ngFor="let task of getTasks(status.id); trackBy: getTrackByTaskId" cdkDrag>
+            <app-task-card [task]="task" (open)="openTask($event)" (edit)="openEdit(task)"></app-task-card>
+          </div>
+        </ng-container>
+
+        <ng-template #emptyState>
+          <div class="empty-state">
+            <strong>Không có công việc</strong>
+            <span>Khung này đang trống theo bộ lọc hiện tại.</span>
+          </div>
+        </ng-template>
+      </div>
+    </article>
+  </section>
 </div>
 
-<!-- Drawer -->
-
-<app-task-detail-drawer *ngIf="selectedTask()" [task]="selectedTask()!"
+<app-task-detail-drawer
+  *ngIf="selectedTask()"
+  [task]="selectedTask()!"
   (close)="closeDrawer()"></app-task-detail-drawer>
 
-
-<!-- Edit Modal -->
-
-<app-task-edit-modal *ngIf="editingTask()" [task]="editingTask()!" (close)="closeEditModal()"
+<app-task-edit-modal
+  *ngIf="editingTask()"
+  [task]="editingTask()!"
+  [formOptions]="formOptions()"
+  [parentTaskOptions]="editParentTaskOptions()"
+  (close)="closeEditModal()"
   (save)="saveTask($event)"></app-task-edit-modal>
+
+<app-task-create-modal
+  *ngIf="isCreateModalOpen()"
+  [taskCode]="nextTaskCode()"
+  [formOptions]="formOptions()"
+  [parentTaskOptions]="parentTaskOptions()"
+  (close)="closeCreateModal()"
+  (create)="createTask($event)"></app-task-create-modal>

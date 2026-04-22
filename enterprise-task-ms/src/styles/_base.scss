@@ -2,12 +2,36 @@
   box-sizing: border-box;
 }
 
-h1,h2,h3,h4 {
+html {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+}
+
 .page-title {
+  margin-bottom: 30px;
   font-size: 24px;
   font-weight: 600;
-  margin-bottom: 30px;
 }

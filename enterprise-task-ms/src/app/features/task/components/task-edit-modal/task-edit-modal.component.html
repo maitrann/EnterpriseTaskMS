@@ -1,83 +1,340 @@
-<div class="modal-backdrop">
+<div class="modal-backdrop" (click)="close.emit()">
+  <section class="modal" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="header-copy">
+        <div class="header-topline">
+          <span class="ui-pill ui-pill-muted">{{ statusLabel }}</span>
+          <span class="priority-chip" [ngClass]="'priority-' + task.priorityId">{{ priorityLabel }}</span>
+        </div>
 
-  <div class="modal">
+        <h3>Chỉnh sửa công việc</h3>
+        <p>Cập nhật nội dung, ngữ cảnh, phân công xử lý và các mốc theo dõi để form sửa đồng bộ hơn với form tạo mới.</p>
+      </div>
 
-    <div class="modal-header">
-
-      <h3>Edit Task</h3>
-
-      <button (click)="close.emit()">✕</button>
-
-    </div>
-
+      <button class="close-btn" type="button" (click)="close.emit()">X</button>
+    </header>
 
     <div class="modal-body">
-
-      <label>Title</label>
-      <input [(ngModel)]="task.title" />
-
-      <label>Description</label>
-      <textarea [(ngModel)]="task.description"></textarea>
-
-
-      <div class="grid">
-
-        <div>
-          <label>Priority</label>
-
-          <select [(ngModel)]="task.priorityId">
-            <option [value]="1">Low</option>
-            <option [value]="2">Medium</option>
-            <option [value]="3">High</option>
-            <option [value]="4">Critical</option>
-          </select>
+      <section class="hero-strip surface-card-muted">
+        <div class="hero-item">
+          <span>Mã công việc</span>
+          <strong>{{ task.code || ('#' + task.id) }}</strong>
         </div>
 
-        <div>
-          <label>Progress</label>
-
-          <input
-            type="range"
-            min="0"
-            max="100"
-            [(ngModel)]="task.progress"
-          />
-
-          {{task.progress}}%
+        <div class="hero-item">
+          <span>Người xử lý chính</span>
+          <strong>{{ assigneeLabel }}</strong>
         </div>
 
-      </div>
+        <div class="hero-item">
+          <span>Tiến độ hiện tại</span>
+          <strong>{{ task.progress }}%</strong>
+        </div>
+      </section>
 
-
-      <div class="grid">
-
-        <div>
-          <label>Start Date</label>
-          <input type="date" [(ngModel)]="task.startDate" />
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Nội dung công việc</h4>
+          <p>Cho phép cập nhật tiêu đề và mô tả chi tiết trước khi tiếp tục điều phối xử lý.</p>
         </div>
 
-        <div>
-          <label>Due Date</label>
-          <input type="date" [(ngModel)]="task.dueDate" />
+        <div class="field-stack">
+          <label class="field-label" for="task-title">Tên công việc</label>
+          <input id="task-title" class="text-field" [(ngModel)]="task.title" />
         </div>
 
-      </div>
+        <div class="field-stack">
+          <label class="field-label" for="task-description">Mô tả chi tiết</label>
+          <textarea
+            id="task-description"
+            class="text-field textarea-field"
+            [(ngModel)]="task.description"></textarea>
+        </div>
+      </section>
 
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Ngữ cảnh công việc</h4>
+          <p>Đồng bộ lại loại công việc, phòng ban, nguồn phát sinh và công việc cha giống như form tạo mới.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label">Loại công việc</label>
+            <app-custom-select
+              [options]="taskTypeOptions()"
+              [value]="task.taskType ?? ''"
+              helperLabel="Chọn một mục"
+              placeholder="Chọn loại công việc"
+              searchPlaceholder="Tìm loại công việc..."
+              (valueChange)="task.taskType = $any($event) || undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Nguồn phát sinh</label>
+            <app-custom-select
+              [options]="sourceOptions()"
+              [value]="task.source ?? ''"
+              helperLabel="Chọn một mục"
+              placeholder="Chọn nguồn phát sinh"
+              searchPlaceholder="Tìm nguồn phát sinh..."
+              (valueChange)="task.source = $any($event) || undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Công việc cha</label>
+            <app-custom-select
+              [options]="parentOptions()"
+              [value]="task.parentTaskId ?? null"
+              helperLabel="Tùy chọn"
+              placeholder="Không có công việc cha"
+              searchPlaceholder="Tìm công việc cha..."
+              (valueChange)="task.parentTaskId = $any($event) ?? undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Phòng ban phụ trách</label>
+            <app-custom-select
+              [options]="departmentOptions()"
+              [value]="task.departmentId ?? null"
+              helperLabel="Chọn một phòng ban"
+              placeholder="Chọn phòng ban"
+              searchPlaceholder="Tìm phòng ban..."
+              (valueChange)="updateDepartment($event)"></app-custom-select>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Phân công và trạng thái</h4>
+          <p>Giữ cùng một nhịp layout với form tạo để việc đọc và cập nhật thông tin đỡ bị lệch mạch.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label">Người xử lý chính</label>
+            <app-custom-select
+              [options]="assigneeOptions()"
+              [value]="task.assigneeId ?? null"
+              helperLabel="Chọn một người"
+              placeholder="Chưa chọn người xử lý chính"
+              searchPlaceholder="Tìm người xử lý..."
+              (valueChange)="task.assigneeId = $any($event) ?? undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Trạng thái</label>
+            <app-custom-select
+              [options]="statuses"
+              [value]="task.statusId ?? null"
+              helperLabel="Chọn một trạng thái"
+              placeholder="Chọn trạng thái"
+              searchPlaceholder="Tìm trạng thái..."
+              (valueChange)="updateStatus($event)"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức ưu tiên</label>
+            <app-custom-select
+              [options]="priorities"
+              [value]="task.priorityId ?? null"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức ưu tiên"
+              searchPlaceholder="Tìm mức ưu tiên..."
+              (valueChange)="updatePriority($event)"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Người phối hợp</label>
+            <app-custom-select
+              [options]="collaboratorOptions()"
+              [value]="task.collaboratorIds ?? []"
+              [multiple]="true"
+              helperLabel="Chọn nhiều người"
+              placeholder="Chưa chọn người phối hợp"
+              searchPlaceholder="Tìm người phối hợp..."
+              (valueChange)="task.collaboratorIds = $any($event) ?? []"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Người theo dõi</label>
+            <app-custom-select
+              [options]="watcherOptions()"
+              [value]="task.watcherIds ?? []"
+              [multiple]="true"
+              helperLabel="Chọn nhiều người"
+              placeholder="Chưa chọn người theo dõi"
+              searchPlaceholder="Tìm người theo dõi..."
+              (valueChange)="task.watcherIds = $any($event) ?? []"></app-custom-select>
+          </div>
+        </div>
+
+        <div class="progress-panel">
+          <div class="progress-head">
+            <div>
+              <span class="field-label">Tiến độ hoàn thành</span>
+              <strong>{{ task.progress }}%</strong>
+            </div>
+
+            <span class="ui-pill ui-pill-info">{{ statusLabel }}</span>
+          </div>
+
+          <input class="progress-slider" type="range" min="0" max="100" [(ngModel)]="task.progress" />
+
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="task.progress"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Mốc thời gian và mức độ xử lý</h4>
+          <p>Giữ deadline hợp lệ, đồng thời cho phép cập nhật mức độ khẩn, bảo mật và effort thực thi.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label" for="task-start-date">Ngày bắt đầu</label>
+            <input id="task-start-date" class="text-field" type="date" [(ngModel)]="startDateValue" />
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="task-due-date">Deadline</label>
+            <input id="task-due-date" class="text-field" type="date" [(ngModel)]="dueDateValue" />
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức độ khẩn</label>
+            <app-custom-select
+              [options]="urgencyOptions()"
+              [value]="task.urgencyLevel ?? ''"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức độ khẩn"
+              searchPlaceholder="Tìm mức độ khẩn..."
+              (valueChange)="task.urgencyLevel = $any($event) || undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label">Mức độ bảo mật</label>
+            <app-custom-select
+              [options]="securityOptions()"
+              [value]="task.securityLevel ?? ''"
+              helperLabel="Chọn một mức"
+              placeholder="Chọn mức độ bảo mật"
+              searchPlaceholder="Tìm mức độ bảo mật..."
+              (valueChange)="task.securityLevel = $any($event) || undefined"></app-custom-select>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="task-estimated-hours">Dự kiến (giờ)</label>
+            <input
+              id="task-estimated-hours"
+              class="text-field"
+              type="number"
+              min="0"
+              [(ngModel)]="task.estimatedHours" />
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="task-actual-hours">Thực tế (giờ)</label>
+            <input
+              id="task-actual-hours"
+              class="text-field"
+              type="number"
+              min="0"
+              [(ngModel)]="task.actualHours" />
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section surface-card-muted">
+        <div class="section-head">
+          <h4>Đính kèm, gắn thẻ và ghi chú xử lý</h4>
+          <p>Giữ phần lõi giống form tạo, đồng thời vẫn cho phép bổ sung ghi chú vận hành trong quá trình xử lý.</p>
+        </div>
+
+        <div class="field-grid">
+          <div class="field-stack">
+            <label class="field-label" for="task-attachment">File đính kèm</label>
+            <div class="token-input-row">
+              <input
+                id="task-attachment"
+                class="text-field"
+                [ngModel]="attachmentDraft()"
+                (ngModelChange)="attachmentDraft.set($event)"
+                (keyup.enter)="addAttachment()"
+                placeholder="Ví dụ: bien-ban-hop.docx" />
+              <button class="ui-button-ghost" type="button" (click)="addAttachment()">Thêm file</button>
+            </div>
+
+            <div class="token-list" *ngIf="(task.attachmentNames ?? []).length">
+              <button
+                class="token-chip"
+                type="button"
+                *ngFor="let attachment of task.attachmentNames ?? []"
+                (click)="removeAttachment(attachment)">
+                {{ attachment }} <span>x</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-stack">
+            <label class="field-label" for="task-tag">Thẻ (tag)</label>
+            <div class="token-input-row">
+              <input
+                id="task-tag"
+                class="text-field"
+                [ngModel]="tagDraft()"
+                (ngModelChange)="tagDraft.set($event)"
+                (keyup.enter)="addTag()"
+                placeholder="Ví dụ: Báo cáo tuần" />
+              <button class="ui-button-ghost" type="button" (click)="addTag()">Thêm tag</button>
+            </div>
+
+            <div class="token-list" *ngIf="(task.tags ?? []).length">
+              <button
+                class="token-chip token-chip-tag"
+                type="button"
+                *ngFor="let tag of task.tags ?? []"
+                (click)="removeTag(tag)">
+                {{ tag }} <span>x</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="field-stack field-span-2">
+            <label class="field-label" for="task-note">Ghi chú xử lý</label>
+            <textarea
+              id="task-note"
+              class="text-field textarea-field note-field"
+              [ngModel]="processingNoteDraft()"
+              (ngModelChange)="processingNoteDraft.set($event)"
+              placeholder="Ví dụ: Đã làm việc với phòng ban liên quan và chờ phản hồi cuối cùng..."></textarea>
+            <button class="ui-button-ghost note-button" type="button" (click)="addProcessingNote()">
+              Thêm ghi chú
+            </button>
+          </div>
+        </div>
+
+        <div class="notes-list" *ngIf="(task.processingNotes ?? []).length">
+          <article class="note-card" *ngFor="let note of task.processingNotes ?? []">
+            <p>{{ note }}</p>
+            <button type="button" (click)="removeProcessingNote(note)">Xóa</button>
+          </article>
+        </div>
+      </section>
     </div>
 
-
-    <div class="modal-footer">
-
-      <button class="btn-secondary" (click)="close.emit()">
-        Cancel
-      </button>
-
-      <button class="btn-primary" (click)="saveTask()">
-        Save
-      </button>
-
-    </div>
-
-  </div>
-
+    <footer class="modal-footer">
+      <p class="validation-message" *ngIf="validationMessage()">{{ validationMessage() }}</p>
+      <div class="footer-actions">
+        <button class="ui-button-ghost" type="button" (click)="close.emit()">Đóng</button>
+        <button class="ui-button-primary" type="button" [disabled]="!!validationMessage()" (click)="saveTask()">
+          Lưu thay đổi
+        </button>
+      </div>
+    </footer>
+  </section>
 </div>

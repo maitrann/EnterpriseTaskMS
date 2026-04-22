@@ -1,0 +1,50 @@
+<div class="auth-shell">
+  <section class="auth-panel auth-copy">
+    <p class="eyebrow">Enterprise Task MS</p>
+    <h1>Dang nhap de test workflow quan ly cong viec bang mock data</h1>
+    <p class="description">
+      Luong hien tai dung 1 tai khoan admin mock de minh test giao dien login, logout va phan quyen
+      truoc khi noi backend C#.
+    </p>
+
+    <div class="credential-card">
+      <span class="card-label">Tai khoan demo</span>
+      <strong>{{ demoCredentials.email }}</strong>
+      <span>Mat khau: {{ demoCredentials.password }}</span>
+      <button class="secondary-btn" type="button" (click)="fillDemoCredentials()">Dung tai khoan mau</button>
+    </div>
+  </section>
+
+  <section class="auth-panel auth-form-panel">
+    <div class="form-head">
+      <h2>Dang nhap he thong</h2>
+      <p>Nhap thong tin tai khoan admin mock de vao dashboard tong quan sau do dieu huong tiep.</p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="field-stack">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" formControlName="email" placeholder="admin@etms.local" />
+        <small *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+          Vui long nhap email hop le.
+        </small>
+      </div>
+
+      <div class="field-stack">
+        <label for="login-password">Mat khau</label>
+        <input id="login-password" type="password" formControlName="password" placeholder="Nhap mat khau" />
+        <small *ngIf="form.get('password')?.touched && form.get('password')?.invalid">
+          Mat khau khong duoc de trong.
+        </small>
+      </div>
+
+      <div class="form-row">
+        <a routerLink="/forgot-password">Quen mat khau?</a>
+      </div>
+
+      <div class="error-box" *ngIf="errorMessage()">{{ errorMessage() }}</div>
+
+      <button class="primary-btn" type="submit">Dang nhap vao dashboard</button>
+    </form>
+  </section>
+</div>

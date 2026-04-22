@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject } from '@angular/core';
+
+import { DepartmentService } from '../../core/services/department.service';
 
 @Component({
   standalone: true,
@@ -9,27 +11,8 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./department.component.scss']
 })
 export class DepartmentComponent {
+  private readonly departmentService = inject(DepartmentService);
 
-  departments = [
-    {
-      name: 'Engineering',
-      description: 'Product development and system architecture',
-      members: 24
-    },
-    {
-      name: 'Marketing',
-      description: 'Brand, growth and customer acquisition',
-      members: 12
-    },
-    {
-      name: 'Human Resources',
-      description: 'People operations and recruitment',
-      members: 6
-    },
-    {
-      name: 'Finance',
-      description: 'Financial planning and analysis',
-      members: 8
-    }
-  ];
+  readonly departments = this.departmentService.departmentCards;
+  readonly summaryCards = this.departmentService.summaryCards;
 }

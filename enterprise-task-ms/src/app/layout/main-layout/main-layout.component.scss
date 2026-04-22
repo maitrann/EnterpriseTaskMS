@@ -2,17 +2,30 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #f6f7fb;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.1), transparent 25%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
 }
 
 .layout-body {
   flex: 1;
   display: flex;
   overflow: hidden;
+  min-height: 0;
 }
 
 .content {
   flex: 1;
   overflow: auto;
-  padding: 20px;
+  padding: 24px;
+}
+
+@media (max-width: 900px) {
+  .layout-body {
+    flex-direction: column;
+  }
+
+  .content {
+    padding: 18px;
+  }
 }

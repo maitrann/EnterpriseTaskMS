@@ -1,32 +1,94 @@
-import { Injectable, signal } from '@angular/core';
+import { Inject, Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
+
+import { AUTH_DATA_SOURCE, AuthDataSource } from '../data-sources/auth.datasource';
+import { User } from '../models/user.model';
+
+const AUTH_STORAGE_KEY = 'etms-auth-user';
+const AUTH_TOKEN_KEY = 'etms-auth-token';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly mockAdminUser: ReturnType<AuthDataSource['getMockAdminUser']>;
 
-  user = signal<any>(null);
+  readonly user = signal<User | null>(this.restoreUser());
+  readonly isLoggedIn = computed(() => !!this.user() && !!localStorage.getItem(AUTH_TOKEN_KEY));
 
-  constructor(private router: Router) {}
+  constructor(
+    private readonly router: Router,
+    @Inject(AUTH_DATA_SOURCE) private readonly authDataSource: AuthDataSource
+  ) {
+    this.mockAdminUser = this.authDataSource.getMockAdminUser();
+  }
+
+  get mockCredentials() {
+    return {
+      email: this.mockAdminUser.email!,
+      password: this.mockAdminUser.password
+    };
+  }
 
   login(email: string, password: string) {
-    const mockUser = {
-      id: 1,
-      name: 'Admin User',
-      role: 'admin'
-    };
+    const normalizedEmail = email.trim().toLowerCase();
 
-    localStorage.setItem('token', 'mock-token');
-    this.user.set(mockUser);
+    if (
+      normalizedEmail !== this.mockAdminUser.email?.toLowerCase() ||
+      password !== this.mockAdminUser.password
+    ) {
+      return {
+        success: false,
+        message: 'Thong tin dang nhap khong dung. Thu lai tai khoan admin mock.'
+      };
+    }
+
+    const { password: _password, ...safeUser } = this.mockAdminUser;
+
+    localStorage.setItem(AUTH_TOKEN_KEY, 'mock-token-admin');
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(safeUser));
+    this.user.set(safeUser);
     this.router.navigate(['/dashboard']);
+
+    return {
+      success: true
+    };
   }
 
   logout() {
-    localStorage.removeItem('token');
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
     this.user.set(null);
     this.router.navigate(['/login']);
   }
 
+  forgotPassword(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const isKnownAccount = normalizedEmail === this.mockAdminUser.email?.toLowerCase();
+
+    return {
+      success: true,
+      message: isKnownAccount
+        ? 'Da gui huong dan dat lai mat khau mock cho tai khoan admin@etms.local.'
+        : 'Neu email ton tai trong he thong, huong dan dat lai mat khau se duoc gui toi hop thu do.'
+    };
+  }
+
   isAuthenticated() {
-    return !!localStorage.getItem('token');
+    return this.isLoggedIn();
+  }
+
+  private restoreUser(): User | null {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(raw) as User;
+    } catch {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      return null;
+    }
   }
 }
