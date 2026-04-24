@@ -1,15 +1,25 @@
 <div class="request-shell">
   <section class="hero surface-card">
     <div class="hero-copy">
-      <p class="page-eyebrow">Yêu cầu liên phòng</p>
-      <h2>Theo dõi luồng xử lý nội bộ từ bên gửi, bên nhận đến xác nhận kết quả</h2>
+      <p class="page-eyebrow">Yêu cầu liên phòng ban</p>
+      <h2>Theo dõi luồng gửi yêu cầu, tiếp nhận, phân công, xử lý và đóng phiếu</h2>
       <p>
-        Màn này bám sát spec nghiệp vụ liên phòng ban: có bên yêu cầu, đầu mối tiếp nhận, SLA, trạng
-        thái xử lý và ghi chú phản hồi.
+        Màn hình này lấy dữ liệu theo đúng tài khoản đang đăng nhập. Người dùng chỉ nhìn thấy các phiếu thuộc
+        phạm vi xử lý của mình và thực hiện thao tác đúng theo vai trò hiện tại.
       </p>
     </div>
 
-    <button class="ui-button-primary" type="button" (click)="openCreateModal()">Tạo yêu cầu mock</button>
+    <button class="ui-button-primary" type="button" (click)="openCreateModal()">Tạo phiếu yêu cầu</button>
+  </section>
+
+  <section class="session-bar surface-card">
+    <div class="session-card surface-card-muted" *ngIf="currentUser() as user">
+      <span>{{ user.requestAccessRole === 'requester' ? 'Bên gửi' : 'Bên nhận' }}</span>
+      <strong>{{ user.fullName }}</strong>
+      <small>{{ user.departmentName }} · {{ user.email }}</small>
+    </div>
+
+    <div class="feedback-pill" *ngIf="feedbackMessage()">{{ feedbackMessage() }}</div>
   </section>
 
   <section class="summary-grid">
@@ -22,31 +32,31 @@
 
   <section class="filter-bar surface-card">
     <label class="form-field-stack filter-field">
-      <span>Bên gửi</span>
+      <span>Loại yêu cầu</span>
       <app-custom-select
-        [options]="departmentSelectOptions()"
-        [value]="filters().requesterDepartment"
-        helperLabel="Lọc theo phòng ban"
+        [options]="requestTypeSelectOptions()"
+        [value]="filters().type"
+        helperLabel="Lọc theo nhóm nghiệp vụ"
         placeholder="Tất cả"
-        searchPlaceholder="Tìm bên gửi..."
-        (valueChange)="updateFilter('requesterDepartment', $any($event) ?? '')"></app-custom-select>
+        searchPlaceholder="Tìm loại yêu cầu..."
+        (valueChange)="updateFilter('type', $any($event) ?? '')"></app-custom-select>
     </label>
 
     <label class="form-field-stack filter-field">
       <span>Bên nhận</span>
       <app-custom-select
         [options]="departmentSelectOptions()"
-        [value]="filters().targetDepartment"
-        helperLabel="Lọc theo phòng ban"
+        [value]="filters().targetDepartmentId"
+        helperLabel="Lọc theo bộ phận tiếp nhận"
         placeholder="Tất cả"
         searchPlaceholder="Tìm bên nhận..."
-        (valueChange)="updateFilter('targetDepartment', $any($event) ?? '')"></app-custom-select>
+        (valueChange)="updateFilter('targetDepartmentId', $any($event) ?? '')"></app-custom-select>
     </label>
 
     <label class="form-field-stack filter-field">
       <span>Trạng thái</span>
       <app-custom-select
-        [options]="statusSelectOptions()"
+        [options]="filterStatusOptions()"
         [value]="filters().status"
         helperLabel="Lọc theo trạng thái"
         placeholder="Tất cả"
@@ -67,51 +77,84 @@
     </article>
   </section>
 
+  <section class="department-strip" *ngIf="departmentStats().length">
+    <article class="department-card surface-card-muted" *ngFor="let item of departmentStats() | slice: 0 : 4">
+      <div class="department-card-head">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.total }}</strong>
+      </div>
+      <small>Đang mở {{ item.open }} · Quá SLA {{ item.breached }}</small>
+    </article>
+  </section>
+
   <section class="request-list">
     <article class="request-card surface-card" *ngFor="let request of filteredRequests()">
       <div class="card-head">
         <div class="title-block">
           <div class="topline">
-            <span class="request-id">{{ request.id }}</span>
+            <span class="request-id">{{ request.code }}</span>
+            <span class="type-badge">{{ getTypeLabel(request.type) }}</span>
             <span class="priority-badge" [ngClass]="'priority-' + request.priority.toLowerCase()">
               {{ request.priority }}
             </span>
           </div>
 
           <h3>{{ request.title }}</h3>
-          <p>{{ request.note }}</p>
+          <p>{{ request.description }}</p>
         </div>
 
-        <span class="status-badge" [ngClass]="'status-' + request.status">
-          {{ getStatusLabel(request.status) }}
-        </span>
+        <div class="status-stack">
+          <span class="status-badge" [ngClass]="'status-' + request.status">
+            {{ getStatusLabel(request.status) }}
+          </span>
+          <span class="sla-badge" [class.is-breached]="request.sla.breached">
+            {{ request.sla.policyLabel }} · {{ getSlaChipLabel(request) }}
+          </span>
+        </div>
       </div>
 
       <div class="meta-grid">
         <div class="meta-item">
           <span>Bên gửi</span>
           <strong>{{ request.requesterDepartment }}</strong>
+          <small>{{ request.requesterName }}</small>
         </div>
 
         <div class="meta-item">
           <span>Bên nhận</span>
           <strong>{{ request.targetDepartment }}</strong>
+          <small>{{ request.owner || 'Chưa phân công' }}</small>
         </div>
 
         <div class="meta-item">
-          <span>Đầu mối xử lý</span>
-          <strong>{{ request.owner }}</strong>
+          <span>Hạn xử lý</span>
+          <strong>{{ request.dueDate }}</strong>
+          <small>{{ request.sla.targetHours }}h SLA</small>
         </div>
 
         <div class="meta-item">
-          <span>SLA / Hạn xử lý</span>
-          <strong>{{ request.sla }} · {{ request.dueDate }}</strong>
+          <span>Tin nhắn mới nhất</span>
+          <strong>{{ request.latestMessage }}</strong>
+          <small>{{ request.messages.length }} trao đổi</small>
+        </div>
+      </div>
+
+      <div class="template-grid" *ngIf="getTemplateEntries(request).length">
+        <div class="template-item" *ngFor="let entry of getTemplateEntries(request); trackBy: trackByKey">
+          <span>{{ entry[0] }}</span>
+          <strong>{{ entry[1] }}</strong>
         </div>
       </div>
 
       <div class="card-actions">
-        <button class="ui-button-ghost" type="button" (click)="openDetail(request)">Xem chi tiết</button>
-        <button class="ui-button-primary" type="button" (click)="openStatusModal(request)">
+        <button class="ui-button-ghost" type="button" (click)="openDetail(request)">Chi tiết</button>
+        <button class="ui-button-ghost" type="button" *ngIf="canAcknowledge(request)" (click)="acknowledgeRequest(request)">
+          Tiếp nhận
+        </button>
+        <button class="ui-button-ghost" type="button" *ngIf="canAssign(request)" (click)="openAssignModal(request)">
+          Phân công
+        </button>
+        <button class="ui-button-primary" type="button" *ngIf="canUpdateStatus(request)" (click)="openStatusModal(request)">
           Cập nhật trạng thái
         </button>
       </div>
@@ -123,8 +166,8 @@
   <section class="create-modal surface-card" (click)="$event.stopPropagation()">
     <div class="modal-head">
       <div>
-        <p class="page-eyebrow">Tạo yêu cầu mock</p>
-        <h3>Tạo nhanh một phiếu liên phòng ban mới</h3>
+        <p class="page-eyebrow">Phiếu mới</p>
+        <h3>Tạo yêu cầu liên phòng ban theo mẫu</h3>
       </div>
 
       <button class="ui-close-btn" type="button" (click)="closeCreateModal()">X</button>
@@ -132,45 +175,14 @@
 
     <div class="modal-grid">
       <label class="form-field-stack">
-        <span>Tiêu đề</span>
-        <input
-          class="form-control"
-          [ngModel]="createForm().title"
-          (ngModelChange)="updateField('title', $event)"
-          placeholder="Nhập nội dung yêu cầu..." />
-      </label>
-
-      <label class="form-field-stack">
-        <span>Bên gửi</span>
+        <span>Loại yêu cầu</span>
         <app-custom-select
-          [options]="departmentSelectOptions()"
-          [value]="createForm().requesterDepartment"
-          helperLabel="Chọn một phòng ban"
-          placeholder="Chọn bên gửi"
-          searchPlaceholder="Tìm bên gửi..."
-          (valueChange)="updateField('requesterDepartment', $any($event))"></app-custom-select>
-      </label>
-
-      <label class="form-field-stack">
-        <span>Bên nhận</span>
-        <app-custom-select
-          [options]="departmentSelectOptions()"
-          [value]="createForm().targetDepartment"
-          helperLabel="Chọn một phòng ban"
-          placeholder="Chọn bên nhận"
-          searchPlaceholder="Tìm bên nhận..."
-          (valueChange)="updateField('targetDepartment', $any($event))"></app-custom-select>
-      </label>
-
-      <label class="form-field-stack">
-        <span>Đầu mối xử lý</span>
-        <app-custom-select
-          [options]="ownerSelectOptions()"
-          [value]="createForm().owner"
-          helperLabel="Chọn một đầu mối"
-          placeholder="Chọn đầu mối xử lý"
-          searchPlaceholder="Tìm đầu mối..."
-          (valueChange)="updateField('owner', $any($event))"></app-custom-select>
+          [options]="requestTypeOptions()"
+          [value]="createForm().type"
+          helperLabel="Tự động gắn SLA theo loại"
+          placeholder="Chọn loại yêu cầu"
+          searchPlaceholder="Tìm loại yêu cầu..."
+          (valueChange)="updateRequestType($any($event))"></app-custom-select>
       </label>
 
       <label class="form-field-stack">
@@ -178,10 +190,31 @@
         <app-custom-select
           [options]="priorityOptions"
           [value]="createForm().priority"
-          helperLabel="Chọn một mức"
+          helperLabel="Đánh dấu mức độ cần ưu tiên"
           placeholder="Chọn mức ưu tiên"
           searchPlaceholder="Tìm mức ưu tiên..."
-          (valueChange)="updateField('priority', $any($event))"></app-custom-select>
+          (valueChange)="updateTextField('priority', $any($event))"></app-custom-select>
+      </label>
+
+      <label class="form-field-stack">
+        <span>Bên gửi</span>
+        <input class="form-control" [ngModel]="createForm().requesterDepartment" disabled />
+      </label>
+
+      <label class="form-field-stack">
+        <span>Người gửi</span>
+        <input class="form-control" [ngModel]="createForm().requesterName" disabled />
+      </label>
+
+      <label class="form-field-stack">
+        <span>Bên nhận</span>
+        <app-custom-select
+          [options]="departmentSelectOptions() | slice: 1"
+          [value]="createForm().targetDepartmentId"
+          helperLabel="Bắt buộc chọn bộ phận tiếp nhận"
+          placeholder="Chọn bên nhận"
+          searchPlaceholder="Tìm bên nhận..."
+          (valueChange)="updateTargetDepartment($any($event) ?? '')"></app-custom-select>
       </label>
 
       <label class="form-field-stack">
@@ -190,22 +223,80 @@
           class="form-control"
           type="date"
           [ngModel]="createForm().dueDate"
-          (ngModelChange)="updateField('dueDate', $event)" />
+          (ngModelChange)="updateTextField('dueDate', $event)" />
       </label>
+
+      <label class="form-field-stack full-span">
+        <span>Tiêu đề</span>
+        <input
+          class="form-control"
+          [ngModel]="createForm().title"
+          (ngModelChange)="updateTextField('title', $event)"
+          placeholder="Nhập tiêu đề ngắn gọn cho yêu cầu" />
+      </label>
+
+      <label class="form-field-stack full-span">
+        <span>Mô tả nghiệp vụ</span>
+        <textarea
+          class="form-control multiline"
+          [ngModel]="createForm().description"
+          (ngModelChange)="updateTextField('description', $event)"
+          placeholder="Mô tả bối cảnh, đầu vào, kết quả mong muốn"></textarea>
+      </label>
+
+      <ng-container *ngFor="let field of templateFields()">
+        <label class="form-field-stack">
+          <span>{{ field.label }}</span>
+          <input
+            class="form-control"
+            [ngModel]="createForm().formValues[field.key]"
+            (ngModelChange)="updateTemplateValue(field.key, $event)"
+            [placeholder]="field.placeholder" />
+        </label>
+      </ng-container>
     </div>
 
     <label class="form-field-stack full-width">
-      <span>Ghi chú</span>
+      <span>Ghi chú / nội dung mở đầu</span>
       <textarea
         class="form-control multiline"
         [ngModel]="createForm().note"
-        (ngModelChange)="updateField('note', $event)"
-        placeholder="Thêm ghi chú tiếp nhận hoặc bối cảnh nghiệp vụ..."></textarea>
+        (ngModelChange)="updateTextField('note', $event)"
+        placeholder="Nhập ghi chú giao tiếp đầu tiên giữa bên gửi và bên xử lý"></textarea>
     </label>
 
     <div class="modal-actions">
       <button class="ui-button-ghost" type="button" (click)="closeCreateModal()">Đóng</button>
-      <button class="ui-button-primary" type="button" (click)="createMockRequest()">Lưu yêu cầu mock</button>
+      <button class="ui-button-primary" type="button" (click)="createRequest()">Lưu phiếu</button>
+    </div>
+  </section>
+</div>
+
+<div class="modal-backdrop stacked-backdrop" *ngIf="assigningRequest()" (click)="closeAssignModal()">
+  <section class="status-modal surface-card" (click)="$event.stopPropagation()">
+    <div class="modal-head">
+      <div>
+        <p class="page-eyebrow">Phân công người xử lý</p>
+        <h3>{{ assigningRequest()!.code }} · {{ assigningRequest()!.title }}</h3>
+      </div>
+
+      <button class="ui-close-btn" type="button" (click)="closeAssignModal()">X</button>
+    </div>
+
+    <label class="form-field-stack">
+      <span>Người xử lý</span>
+      <app-custom-select
+        [options]="ownerSelectOptions()"
+        [value]="selectedOwnerId()"
+        helperLabel="Chỉ chọn trong bộ phận tiếp nhận"
+        placeholder="Chọn người xử lý"
+        searchPlaceholder="Tìm người xử lý..."
+        (valueChange)="selectedOwnerId.set($any($event) ?? '')"></app-custom-select>
+    </label>
+
+    <div class="modal-actions">
+      <button class="ui-button-ghost" type="button" (click)="closeAssignModal()">Đóng</button>
+      <button class="ui-button-primary" type="button" (click)="assignOwner()">Lưu phân công</button>
     </div>
   </section>
 </div>
@@ -214,7 +305,7 @@
   <section class="detail-modal surface-card" (click)="$event.stopPropagation()">
     <div class="modal-head">
       <div>
-        <p class="page-eyebrow">Chi tiết yêu cầu</p>
+        <p class="page-eyebrow">{{ selectedRequest()!.code }} · {{ getTypeLabel(selectedRequest()!.type) }}</p>
         <h3>{{ selectedRequest()!.title }}</h3>
       </div>
 
@@ -223,34 +314,87 @@
 
     <div class="detail-grid">
       <div class="meta-item">
-        <span>Mã yêu cầu</span>
-        <strong>{{ selectedRequest()!.id }}</strong>
-      </div>
-      <div class="meta-item">
-        <span>Trạng thái</span>
-        <strong>{{ getStatusLabel(selectedRequest()!.status) }}</strong>
-      </div>
-      <div class="meta-item">
         <span>Bên gửi</span>
         <strong>{{ selectedRequest()!.requesterDepartment }}</strong>
+        <small>{{ selectedRequest()!.requesterName }}</small>
       </div>
       <div class="meta-item">
         <span>Bên nhận</span>
         <strong>{{ selectedRequest()!.targetDepartment }}</strong>
+        <small>{{ selectedRequest()!.owner || 'Chưa phân công' }}</small>
       </div>
       <div class="meta-item">
-        <span>Đầu mối xử lý</span>
-        <strong>{{ selectedRequest()!.owner }}</strong>
+        <span>Trạng thái</span>
+        <strong>{{ getStatusLabel(selectedRequest()!.status) }}</strong>
+        <small>Cập nhật {{ selectedRequest()!.updatedAt | date: 'dd/MM/yyyy HH:mm' }}</small>
       </div>
       <div class="meta-item">
-        <span>SLA / Hạn xử lý</span>
-        <strong>{{ selectedRequest()!.sla }} · {{ selectedRequest()!.dueDate }}</strong>
+        <span>SLA</span>
+        <strong>{{ selectedRequest()!.sla.policyLabel }}</strong>
+        <small>{{ getSlaChipLabel(selectedRequest()!) }} · Hạn {{ selectedRequest()!.dueDate }}</small>
       </div>
     </div>
 
     <div class="detail-note surface-card-muted">
-      <span>Ghi chú nghiệp vụ</span>
-      <p>{{ selectedRequest()!.note }}</p>
+      <span>Mô tả nghiệp vụ</span>
+      <p>{{ selectedRequest()!.description }}</p>
+    </div>
+
+    <div class="detail-section" *ngIf="getTemplateEntries(selectedRequest()!).length">
+      <div class="section-head">
+        <span>Thông tin theo mẫu</span>
+      </div>
+      <div class="template-grid compact">
+        <div class="template-item" *ngFor="let entry of getTemplateEntries(selectedRequest()!); trackBy: trackByKey">
+          <span>{{ entry[0] }}</span>
+          <strong>{{ entry[1] }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="section-head">
+        <span>Hội đáp hai chiều</span>
+        <small>{{ selectedRequest()!.messages.length }} trao đổi</small>
+      </div>
+
+      <div class="message-thread">
+        <article
+          class="message-item"
+          *ngFor="let message of selectedRequest()!.messages"
+          [class.role-requester]="message.authorRole === 'requester'"
+          [class.role-processor]="message.authorRole === 'processor'">
+          <div class="message-head">
+            <strong>{{ message.authorName }}</strong>
+            <span>{{ message.authorDepartment }} · {{ message.createdAt }}</span>
+          </div>
+          <p>{{ message.body }}</p>
+        </article>
+      </div>
+
+      <div class="message-composer surface-card-muted">
+        <label class="form-field-stack">
+          <span>Nội dung phản hồi</span>
+          <textarea
+            class="form-control multiline"
+            [ngModel]="messageDraft()"
+            (ngModelChange)="messageDraft.set($event)"
+            placeholder="Thêm nội dung trao đổi giữa bên gửi và bộ phận xử lý"></textarea>
+        </label>
+
+        <div class="modal-actions compact-actions">
+          <button class="ui-button-ghost" type="button" *ngIf="canAssign(selectedRequest()!)" (click)="openAssignModal(selectedRequest()!)">
+            Phân công
+          </button>
+          <button class="ui-button-ghost" type="button" *ngIf="canAcknowledge(selectedRequest()!)" (click)="acknowledgeRequest(selectedRequest()!)">
+            Tiếp nhận
+          </button>
+          <button class="ui-button-primary" type="button" (click)="addMessageToSelectedRequest()">Thêm trao đổi</button>
+          <button class="ui-button-primary" type="button" *ngIf="canClose(selectedRequest()!)" (click)="closeSelectedRequest()">
+            Xác nhận đóng phiếu
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 </div>
@@ -259,8 +403,8 @@
   <section class="status-modal surface-card" (click)="$event.stopPropagation()">
     <div class="modal-head">
       <div>
-        <p class="page-eyebrow">Cập nhật trạng thái</p>
-        <h3>{{ editingRequest()!.id }} · {{ editingRequest()!.title }}</h3>
+        <p class="page-eyebrow">Trạng thái xử lý</p>
+        <h3>{{ editingRequest()!.code }} · {{ editingRequest()!.title }}</h3>
       </div>
 
       <button class="ui-close-btn" type="button" (click)="closeStatusModal()">X</button>
@@ -269,9 +413,9 @@
     <label class="form-field-stack">
       <span>Trạng thái mới</span>
       <app-custom-select
-        [options]="statusSelectOptions()"
+        [options]="workflowStatusOptions()"
         [value]="editingStatus()"
-        helperLabel="Chọn một trạng thái"
+        helperLabel="Cập nhật workflow của phiếu"
         placeholder="Chọn trạng thái"
         searchPlaceholder="Tìm trạng thái..."
         (valueChange)="editingStatus.set($any($event))"></app-custom-select>
