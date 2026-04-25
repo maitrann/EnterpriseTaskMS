@@ -14,7 +14,7 @@
 
   <section class="session-bar surface-card">
     <div class="session-card surface-card-muted" *ngIf="currentUser() as user">
-      <span>{{ user.requestAccessRole === 'requester' ? 'Bên gửi' : 'Bên nhận' }}</span>
+      <span>{{ getSessionRoleLabel(user) }}</span>
       <strong>{{ user.fullName }}</strong>
       <small>{{ user.departmentName }} · {{ user.email }}</small>
     </div>

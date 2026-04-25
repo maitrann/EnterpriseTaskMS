@@ -120,6 +120,9 @@
 <app-task-detail-drawer
   *ngIf="selectedTask()"
   [task]="selectedTask()!"
+  [formOptions]="formOptions()"
+  (taskChanged)="handleTaskChanged($event)"
+  (taskCreated)="handleTaskCreated($event)"
   (close)="closeDrawer()"></app-task-detail-drawer>
 
 <app-task-edit-modal

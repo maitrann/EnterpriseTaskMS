@@ -1,29 +1,6 @@
 import { TaskFormOptions } from '../models/task-form.model';
 import { Task } from '../models/task.model';
-import { TASK_STATUS_DEFINITIONS } from '../constants/task-status.constants';
-
-const statuses = TASK_STATUS_DEFINITIONS.map((status) => status.id);
-const priorities = [1, 2, 3, 4];
-const taskTypes = ['Vận hành', 'Báo cáo', 'Phê duyệt', 'Liên phòng'];
-const urgencyLevels = ['Thông thường', 'Gấp', 'Khẩn'];
-const securityLevels = ['Nội bộ', 'Hạn chế', 'Bảo mật'];
-const sources = ['Kế hoạch tháng', 'Chỉ đạo lãnh đạo', 'Văn bản đến', 'Yêu cầu liên phòng'];
-const departmentIds = [1, 2, 3, 4, 5];
-const tags = ['Báo cáo', 'Hợp đồng', 'Nhân sự', 'Thông báo', 'Phê duyệt', 'Liên phòng'];
-
-function randomItem<T>(items: T[]): T {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function randomDate(start: Date, end: Date) {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-}
-
-function randomSubset<T>(items: T[], min = 0, max = 2) {
-  const count = Math.min(items.length, Math.floor(Math.random() * (max - min + 1)) + min);
-  const shuffled = [...items].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
-}
+import { TASK_STATUS_IDS } from '../constants/task-status.constants';
 
 const now = new Date();
 
@@ -73,69 +50,432 @@ export const TASK_FORM_OPTIONS_MOCK: TaskFormOptions = {
   ]
 };
 
-export const TASK_MOCK: Task[] = Array.from({ length: 50 }).map((_, index) => {
-  const start = randomDate(new Date(2026, 2, 1), new Date(2026, 2, 20));
-  const statusId = randomItem(statuses);
-  const due =
-    statusId === 10
-      ? randomDate(new Date(2026, 1, 20), new Date(2026, 2, 10))
-      : randomDate(new Date(2026, 2, 20), new Date(2026, 3, 5));
-  const departmentId = randomItem(departmentIds);
-  const departmentUsers = TASK_FORM_OPTIONS_MOCK.users
-    .filter((user) => user.departmentId === departmentId)
-    .map((user) => user.id);
-  const fallbackUsers = TASK_FORM_OPTIONS_MOCK.users.map((user) => user.id);
-  const assigneePool = departmentUsers.length ? departmentUsers : fallbackUsers;
-  const assigneeId = randomItem(assigneePool);
-  const collaboratorIds = randomSubset(
-    fallbackUsers.filter((userId) => userId !== assigneeId),
-    1,
-    2
-  );
-  const watcherIds = randomSubset(
-    fallbackUsers.filter((userId) => userId !== assigneeId && !collaboratorIds.includes(userId)),
-    1,
-    2
-  );
-  const progress =
-    statusId === 1 ? 0 :
-    statusId === 2 ? randomItem([0, 5, 10]) :
-    statusId === 3 ? Math.floor(Math.random() * 45) + 25 :
-    statusId === 4 ? Math.floor(Math.random() * 35) + 15 :
-    statusId === 5 ? Math.floor(Math.random() * 20) + 55 :
-    statusId === 6 ? Math.floor(Math.random() * 10) + 80 :
-    statusId === 7 ? 100 :
-    statusId === 8 ? 100 :
-    statusId === 9 ? Math.floor(Math.random() * 30) :
-    Math.floor(Math.random() * 35) + 50;
+type TaskSeed = Omit<Task, 'id' | 'code' | 'projectId' | 'createdAt' | 'updatedAt'>;
 
-  return {
-    id: index + 1,
-    code: `CV-${String(index + 1).padStart(4, '0')}`,
-    projectId: 1,
-    parentTaskId: undefined,
-    title: `Công việc #${index + 1}`,
-    description: `Đây là công việc mock số ${index + 1}`,
-    taskType: randomItem(taskTypes),
-    departmentId,
-    statusId,
-    priorityId: randomItem(priorities),
-    urgencyLevel: randomItem(urgencyLevels),
-    securityLevel: randomItem(securityLevels),
+const date = (day: number) => new Date(2026, 3, day);
+
+const taskSeeds: TaskSeed[] = [
+  {
+    title: 'Chot ke hoach van hanh tuan 18',
+    description: 'Tong hop dau viec trong tuan, xac dinh cac moc giao viec va nguoi phu trach.',
+    taskType: 'bao-cao',
+    departmentId: 1,
+    statusId: TASK_STATUS_IDS.DANG_XU_LY,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'noi-bo',
     reporterId: 1,
-    assigneeId,
-    collaboratorIds,
-    watcherIds,
-    startDate: start,
-    dueDate: due,
-    progress,
-    source: randomItem(sources),
-    attachmentNames: Math.random() > 0.5 ? [`tai-lieu-${index + 1}.docx`] : [],
-    tags: randomSubset(tags, 1, 3),
-    processingNotes: [`Đã tiếp nhận và đang theo dõi tiến độ công việc #${index + 1}.`],
-    estimatedHours: Math.floor(Math.random() * 40) + 4,
-    actualHours: Math.floor(Math.random() * 40),
-    createdAt: now,
-    updatedAt: now
-  };
-});
+    assigneeId: 6,
+    collaboratorIds: [2, 4],
+    watcherIds: [1],
+    startDate: date(24),
+    dueDate: date(27),
+    progress: 45,
+    source: 'ke-hoach-thang',
+    attachmentNames: ['ke-hoach-tuan-18.xlsx'],
+    tags: ['Ke hoach', 'Van hanh'],
+    processingNotes: ['Da gom dau viec tu cac phong ban, dang cho xac nhan moc uu tien.'],
+    estimatedHours: 12,
+    actualHours: 5
+  },
+  {
+    title: 'Ra soat danh sach nhan su onboarding thang 5',
+    description: 'Kiem tra thong tin nhan su moi, phoi hop IT va Hanh chinh de chuan bi tai khoan va thiet bi.',
+    taskType: 'lien-phong',
+    departmentId: 2,
+    statusId: TASK_STATUS_IDS.CHO_PHAN_HOI,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'han-che',
+    reporterId: 1,
+    assigneeId: 2,
+    collaboratorIds: [4, 5],
+    watcherIds: [1, 6],
+    startDate: date(23),
+    dueDate: date(29),
+    progress: 62,
+    source: 'yeu-cau-lien-phong',
+    attachmentNames: ['onboarding-thang-05.xlsx'],
+    tags: ['Nhan su', 'Onboarding'],
+    processingNotes: ['HR da gui danh sach dot 1, dang cho IT xac nhan tai khoan.'],
+    estimatedHours: 16,
+    actualHours: 9
+  },
+  {
+    title: 'Doi chieu ngan sach workshop noi bo',
+    description: 'Kiem tra chi phi dia diem, tai lieu va phu cap dien gia truoc khi trinh phe duyet.',
+    taskType: 'phe-duyet',
+    departmentId: 3,
+    statusId: TASK_STATUS_IDS.CHO_PHE_DUYET,
+    priorityId: 4,
+    urgencyLevel: 'khan',
+    securityLevel: 'han-che',
+    reporterId: 1,
+    assigneeId: 3,
+    collaboratorIds: [6],
+    watcherIds: [1],
+    startDate: date(22),
+    dueDate: date(26),
+    progress: 88,
+    source: 'van-ban-den',
+    attachmentNames: ['du-tru-workshop-q2.xlsx'],
+    tags: ['Ngan sach', 'Phe duyet'],
+    processingNotes: ['Da doi chieu hoa don nha cung cap, cho lanh dao phe duyet han muc.'],
+    estimatedHours: 10,
+    actualHours: 8
+  },
+  {
+    title: 'Cap nhat quy trinh tiep nhan yeu cau lien phong',
+    description: 'Bo sung buoc tiep nhan, tu choi, phan cong va dong yeu cau de dong bo voi task board.',
+    taskType: 'van-hanh',
+    departmentId: 4,
+    statusId: TASK_STATUS_IDS.DANG_XU_LY,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 4,
+    collaboratorIds: [1, 6],
+    watcherIds: [2],
+    startDate: date(24),
+    dueDate: date(30),
+    progress: 55,
+    source: 'chi-dao-lanh-dao',
+    attachmentNames: ['quy-trinh-lien-phong-v2.docx'],
+    tags: ['Quy trinh', 'Lien phong'],
+    processingNotes: ['Da co ban nhap luong xu ly, can soat lai vai tro dieu phoi.'],
+    estimatedHours: 18,
+    actualHours: 7
+  },
+  {
+    title: 'Kiem tra tinh san sang backup du lieu quy 2',
+    description: 'Chay kiem tra backup, xac nhan lich restore test va bao cao cac rui ro con ton.',
+    taskType: 'van-hanh',
+    departmentId: 5,
+    statusId: TASK_STATUS_IDS.CHO_TIEP_NHAN,
+    priorityId: 4,
+    urgencyLevel: 'khan',
+    securityLevel: 'bao-mat',
+    reporterId: 1,
+    assigneeId: 5,
+    collaboratorIds: [1],
+    watcherIds: [6],
+    startDate: date(25),
+    dueDate: date(28),
+    progress: 0,
+    source: 'chi-dao-lanh-dao',
+    attachmentNames: ['checklist-backup-q2.xlsx'],
+    tags: ['CNTT', 'Bao mat'],
+    processingNotes: ['Cho IT tiep nhan va xac nhan lich restore test.'],
+    estimatedHours: 14,
+    actualHours: 0
+  },
+  {
+    title: 'Tong hop bao cao KPI van hanh thang 4',
+    description: 'Lay so lieu task, yeu cau lien phong va SLA de lap bao cao tong ket thang.',
+    taskType: 'bao-cao',
+    departmentId: 1,
+    statusId: TASK_STATUS_IDS.MOI_TAO,
+    priorityId: 2,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 6,
+    collaboratorIds: [3, 4],
+    watcherIds: [1],
+    startDate: date(26),
+    dueDate: date(5 + 30),
+    progress: 0,
+    source: 'ke-hoach-thang',
+    attachmentNames: [],
+    tags: ['Bao cao', 'KPI'],
+    processingNotes: ['Moi tao tu ke hoach bao cao thang 4.'],
+    estimatedHours: 20,
+    actualHours: 0
+  },
+  {
+    title: 'Chuan hoa mau bien ban hop dieu phoi',
+    description: 'Thiet lap mau bien ban co muc hanh dong, nguoi phu trach va deadline ro rang.',
+    taskType: 'van-hanh',
+    departmentId: 4,
+    statusId: TASK_STATUS_IDS.HOAN_THANH,
+    priorityId: 2,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 4,
+    collaboratorIds: [6],
+    watcherIds: [1],
+    startDate: date(20),
+    dueDate: date(26),
+    progress: 100,
+    source: 'ke-hoach-thang',
+    attachmentNames: ['mau-bien-ban-hop.docx'],
+    tags: ['Mau bieu', 'Van hanh'],
+    processingNotes: ['Da ban giao mau bien ban cho cac phong ban su dung thu.'],
+    estimatedHours: 8,
+    actualHours: 7
+  },
+  {
+    title: 'Rasoat hop dong dich vu ve sinh van phong',
+    description: 'Kiem tra dieu khoan gia han, pham vi dich vu va SLA xu ly su co trong thang 5.',
+    taskType: 'phe-duyet',
+    departmentId: 4,
+    statusId: TASK_STATUS_IDS.QUA_HAN,
+    priorityId: 4,
+    urgencyLevel: 'khan',
+    securityLevel: 'han-che',
+    reporterId: 1,
+    assigneeId: 4,
+    collaboratorIds: [3],
+    watcherIds: [1],
+    startDate: date(18),
+    dueDate: date(23),
+    progress: 70,
+    source: 'van-ban-den',
+    attachmentNames: ['hop-dong-ve-sinh-2026.pdf'],
+    tags: ['Hop dong', 'Qua han'],
+    processingNotes: ['Qua han do cho phan hoi tu nha cung cap ve dieu khoan bo sung.'],
+    estimatedHours: 12,
+    actualHours: 10
+  },
+  {
+    title: 'Xu ly loi truy cap VPN cho nhom Sales',
+    description: 'Kiem tra tai khoan VPN, cap nhat policy va huong dan nguoi dung dang nhap lai.',
+    taskType: 'lien-phong',
+    departmentId: 5,
+    statusId: TASK_STATUS_IDS.QUA_HAN,
+    priorityId: 4,
+    urgencyLevel: 'khan',
+    securityLevel: 'bao-mat',
+    reporterId: 1,
+    assigneeId: 5,
+    collaboratorIds: [6],
+    watcherIds: [1],
+    startDate: date(21),
+    dueDate: date(24),
+    progress: 80,
+    source: 'yeu-cau-lien-phong',
+    attachmentNames: ['vpn-error-log.txt'],
+    tags: ['CNTT', 'Qua han'],
+    processingNotes: ['Da khoanh vung loi policy, can cap nhat lai nhom quyen cho 3 tai khoan.'],
+    estimatedHours: 6,
+    actualHours: 5
+  },
+  {
+    title: 'Dong bo danh muc phong ban voi dashboard',
+    description: 'Kiem tra lai ten phong ban, tai active va completed de dashboard hien thi nhat quan.',
+    taskType: 'van-hanh',
+    departmentId: 1,
+    statusId: TASK_STATUS_IDS.TAM_DUNG,
+    priorityId: 2,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 6,
+    collaboratorIds: [1],
+    watcherIds: [4],
+    startDate: date(24),
+    dueDate: date(2 + 30),
+    progress: 35,
+    source: 'ke-hoach-thang',
+    attachmentNames: [],
+    tags: ['Dashboard', 'Du lieu'],
+    processingNotes: ['Tam dung de doi chot lai mapping phong ban tu mock data moi.'],
+    estimatedHours: 10,
+    actualHours: 4
+  },
+  {
+    title: 'Phe duyet noi dung email thong bao nghi le',
+    description: 'Soat noi dung email noi bo, lich truc va dau moi lien he trong ky nghi.',
+    taskType: 'phe-duyet',
+    departmentId: 2,
+    statusId: TASK_STATUS_IDS.DONG,
+    priorityId: 2,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 2,
+    collaboratorIds: [4],
+    watcherIds: [1],
+    startDate: date(22),
+    dueDate: date(26),
+    progress: 100,
+    source: 'chi-dao-lanh-dao',
+    attachmentNames: ['email-thong-bao-nghi-le.docx'],
+    tags: ['Thong bao', 'Da dong'],
+    processingNotes: ['Da xac nhan noi dung va dong cong viec.'],
+    estimatedHours: 5,
+    actualHours: 4
+  },
+  {
+    title: 'Lap danh sach thiet bi can bao tri thang 5',
+    description: 'Kiem ke may in, may cham cong va thiet bi phong hop can bao tri dinh ky.',
+    taskType: 'bao-cao',
+    departmentId: 4,
+    statusId: TASK_STATUS_IDS.DANG_XU_LY,
+    priorityId: 2,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 4,
+    collaboratorIds: [5],
+    watcherIds: [6],
+    startDate: date(25),
+    dueDate: date(6 + 30),
+    progress: 30,
+    source: 'ke-hoach-thang',
+    attachmentNames: ['kiem-ke-thiet-bi.xlsx'],
+    tags: ['Hanh chinh', 'Bao tri'],
+    processingNotes: ['Da kiem ke khu lam viec tang 5, con phong hop tang 6.'],
+    estimatedHours: 12,
+    actualHours: 3
+  },
+  {
+    title: 'Kiem tra chung tu thanh toan nha cung cap phan mem',
+    description: 'Doi chieu hop dong, bien ban nghiem thu va hoa don truoc khi len lenh thanh toan.',
+    taskType: 'phe-duyet',
+    departmentId: 3,
+    statusId: TASK_STATUS_IDS.CHO_TIEP_NHAN,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'han-che',
+    reporterId: 1,
+    assigneeId: 3,
+    collaboratorIds: [5],
+    watcherIds: [1],
+    startDate: date(25),
+    dueDate: date(29),
+    progress: 0,
+    source: 'van-ban-den',
+    attachmentNames: ['bo-chung-tu-phan-mem.zip'],
+    tags: ['Tai chinh', 'Thanh toan'],
+    processingNotes: ['Cho ke toan tiep nhan bo chung tu tu IT.'],
+    estimatedHours: 9,
+    actualHours: 0
+  },
+  {
+    title: 'Cap nhat noi dung huong dan su dung task board',
+    description: 'Viet lai huong dan thao tac nhan viec, xin gia han, chuyen nguoi xu ly va xac nhan hoan thanh.',
+    taskType: 'bao-cao',
+    departmentId: 1,
+    statusId: TASK_STATUS_IDS.DANG_XU_LY,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 6,
+    collaboratorIds: [1, 4],
+    watcherIds: [2],
+    startDate: date(25),
+    dueDate: date(28),
+    progress: 50,
+    source: 'chi-dao-lanh-dao',
+    attachmentNames: ['huong-dan-task-board.md'],
+    tags: ['Tai lieu', 'Task board'],
+    processingNotes: ['Da cap nhat phan action layer, dang bo sung anh minh hoa.'],
+    estimatedHours: 10,
+    actualHours: 5
+  },
+  {
+    title: 'Kiem thu luong yeu cau lien phong truoc demo',
+    description: 'Test tao phieu, tiep nhan, phan cong, phan hoi va dong phieu bang cac tai khoan mock.',
+    taskType: 'lien-phong',
+    departmentId: 1,
+    statusId: TASK_STATUS_IDS.CHO_PHE_DUYET,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 1,
+    collaboratorIds: [4, 6],
+    watcherIds: [2],
+    startDate: date(24),
+    dueDate: date(27),
+    progress: 92,
+    source: 'yeu-cau-lien-phong',
+    attachmentNames: ['testcase-yeu-cau-lien-phong.xlsx'],
+    tags: ['Kiem thu', 'Lien phong'],
+    processingNotes: ['Da pass cac case chinh, cho xac nhan UI dropdown status modal.'],
+    estimatedHours: 8,
+    actualHours: 7
+  },
+  {
+    title: 'Len lich dao tao quy trinh phe duyet moi',
+    description: 'Sap xep lich training ngan cho nhom van hanh va cac dau moi phong ban.',
+    taskType: 'van-hanh',
+    departmentId: 2,
+    statusId: TASK_STATUS_IDS.MOI_TAO,
+    priorityId: 1,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 2,
+    collaboratorIds: [6],
+    watcherIds: [1],
+    startDate: date(29),
+    dueDate: date(8 + 30),
+    progress: 0,
+    source: 'ke-hoach-thang',
+    attachmentNames: [],
+    tags: ['Dao tao', 'Quy trinh'],
+    processingNotes: ['Can chot lich sau khi quy trinh duoc phe duyet.'],
+    estimatedHours: 6,
+    actualHours: 0
+  },
+  {
+    title: 'Hoan tat danh sach tai khoan he thong noi bo',
+    description: 'Dong bo danh sach tai khoan dang hoat dong va vo hieu hoa cac tai khoan nghi viec.',
+    taskType: 'van-hanh',
+    departmentId: 5,
+    statusId: TASK_STATUS_IDS.HOAN_THANH,
+    priorityId: 3,
+    urgencyLevel: 'gap',
+    securityLevel: 'bao-mat',
+    reporterId: 1,
+    assigneeId: 5,
+    collaboratorIds: [2],
+    watcherIds: [1],
+    startDate: date(20),
+    dueDate: date(26),
+    progress: 100,
+    source: 'ke-hoach-thang',
+    attachmentNames: ['danh-sach-tai-khoan-thang-04.xlsx'],
+    tags: ['CNTT', 'Tai khoan'],
+    processingNotes: ['Da hoan tat doi chieu voi HR va khoa 4 tai khoan khong con su dung.'],
+    estimatedHours: 12,
+    actualHours: 11
+  },
+  {
+    title: 'Huy yeu cau in bo tai lieu cu',
+    description: 'Huy dau viec in tai lieu do phong ban da chuyen sang ban dien tu.',
+    taskType: 'van-hanh',
+    departmentId: 4,
+    statusId: TASK_STATUS_IDS.HUY,
+    priorityId: 1,
+    urgencyLevel: 'thong-thuong',
+    securityLevel: 'noi-bo',
+    reporterId: 1,
+    assigneeId: 4,
+    collaboratorIds: [],
+    watcherIds: [6],
+    startDate: date(22),
+    dueDate: date(28),
+    progress: 0,
+    source: 'yeu-cau-lien-phong',
+    attachmentNames: [],
+    tags: ['Huy', 'Tai lieu'],
+    processingNotes: ['Da huy theo xac nhan cua phong ban yeu cau.'],
+    estimatedHours: 2,
+    actualHours: 0
+  }
+];
+
+export const TASK_MOCK: Task[] = taskSeeds.map((task, index) => ({
+  ...task,
+  id: index + 1,
+  code: `CV-${String(index + 1).padStart(4, '0')}`,
+  projectId: 1,
+  createdAt: now,
+  updatedAt: now
+}));

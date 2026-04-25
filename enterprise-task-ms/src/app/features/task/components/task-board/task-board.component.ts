@@ -225,6 +225,17 @@ export class TaskBoardComponent {
     this.transitionMessage.set('');
   }
 
+  handleTaskChanged(task: Task) {
+    this.selectedTask.set(task);
+    this.transitionMessage.set('');
+  }
+
+  handleTaskCreated(task: Task) {
+    this.selectedTask.set(task);
+    this.statusView.set('all');
+    this.transitionMessage.set('');
+  }
+
   getDueState(task: Task): 'normal' | 'warning' | 'overdue' {
     if (task.statusId === 10) {
       return 'overdue';

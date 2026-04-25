@@ -61,7 +61,13 @@ export class CustomSelectComponent {
       return;
     }
 
-    this.isOpen.update((value) => !value);
+    this.isOpen.update((value) => {
+      if (value) {
+        this.searchTerm.set('');
+      }
+
+      return !value;
+    });
   }
 
   selectOption(option: CustomSelectOption) {

@@ -6,7 +6,7 @@
     </div>
 
     <span class="trigger-meta" *ngIf="multiple && getSelectedOptions().length">{{ getSelectedOptions().length }}</span>
-    <span class="trigger-arrow">⌄</span>
+    <span class="trigger-arrow" aria-hidden="true"></span>
   </button>
 
   <div class="select-panel" *ngIf="isOpen()">
@@ -28,7 +28,7 @@
           *ngFor="let option of group.options"
           [class.active]="isSelected(option)"
           (click)="selectOption(option)">
-          <span class="option-check">{{ isSelected(option) ? '✓' : '' }}</span>
+          <span class="option-check" aria-hidden="true"></span>
 
           <span class="option-copy">
             <strong>{{ option.label }}</strong>

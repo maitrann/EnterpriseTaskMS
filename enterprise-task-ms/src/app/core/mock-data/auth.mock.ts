@@ -15,6 +15,10 @@ export const MOCK_ADMIN_USER: MockAuthUser = {
   fullName: 'Truong Tran',
   role: 'System Admin',
   departmentId: 1,
+  departmentCode: 'executive',
+  departmentName: 'Ban dieu hanh',
+  requestAccessRole: 'coordinator',
+  canCreateRequest: true,
   isActive: true,
   createdAt: new Date('2026-04-01T08:00:00'),
   password: 'Admin@123'

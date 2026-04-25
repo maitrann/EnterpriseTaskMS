@@ -38,6 +38,34 @@ export class TaskActivityTimelineComponent {
         return 'them ghi chu';
       case 'attachment_added':
         return 'them tep dinh kem';
+      case 'attachment_change':
+        return 'cap nhat tep dinh kem';
+      case 'deadline_change':
+        return 'doi deadline';
+      case 'processing_note_change':
+        return 'cap nhat ghi chu xu ly';
+      case 'accept_task':
+        return 'nhan viec';
+      case 'reject_acceptance':
+        return 'tu choi tiep nhan';
+      case 'request_extension':
+        return 'xin gia han';
+      case 'approve_extension':
+        return 'duyet gia han';
+      case 'reject_extension':
+        return 'tu choi gia han';
+      case 'transfer_assignee':
+        return 'chuyen nguoi xu ly';
+      case 'complete_task':
+        return 'hoan thanh cong viec';
+      case 'confirm_completion':
+        return 'xac nhan hoan thanh';
+      case 'cancel_task':
+        return 'huy cong viec';
+      case 'duplicate_task':
+        return 'sao chep cong viec';
+      case 'create_similar_task':
+        return 'tao cong viec tuong tu';
       default:
         return activity.actionType ?? 'cap nhat cong viec';
     }

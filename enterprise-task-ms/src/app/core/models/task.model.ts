@@ -1,3 +1,17 @@
+export type TaskExtensionRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TaskExtensionRequest {
+  id: number;
+  requestedDueDate: Date;
+  reason: string;
+  status: TaskExtensionRequestStatus;
+  requestedByUserId: number;
+  requestedAt: Date;
+  reviewedByUserId?: number;
+  reviewedAt?: Date;
+  reviewNote?: string;
+}
+
 export interface Task {
   id: number;
   code: string;
@@ -27,6 +41,7 @@ export interface Task {
   attachmentNames?: string[];
   tags?: string[];
   processingNotes?: string[];
+  extensionRequests?: TaskExtensionRequest[];
 
   estimatedHours?: number;
   actualHours?: number;

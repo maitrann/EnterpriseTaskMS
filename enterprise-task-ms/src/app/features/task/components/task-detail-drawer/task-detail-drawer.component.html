@@ -46,6 +46,128 @@
     <section class="detail-section surface-card-muted">
       <div class="section-head">
         <div>
+          <h3>Thao tác công việc</h3>
+          <p>Thực hiện các bước nghiệp vụ chính mà không cần mở form chỉnh sửa tổng quát.</p>
+        </div>
+      </div>
+
+      <p class="action-message" *ngIf="actionMessage()">{{ actionMessage() }}</p>
+
+      <div class="action-grid">
+        <article class="action-box">
+          <div>
+            <strong>Tiếp nhận</strong>
+            <span>Nhận hoặc từ chối công việc đang chờ tiếp nhận.</span>
+          </div>
+          <button class="ui-button-primary" type="button" [disabled]="!canAccept()" (click)="acceptTask()">Nhận việc</button>
+          <textarea
+            class="action-input"
+            [ngModel]="rejectReason()"
+            (ngModelChange)="rejectReason.set($event)"
+            placeholder="Lý do từ chối tiếp nhận"></textarea>
+          <button class="ui-button-ghost danger-action" type="button" [disabled]="!canRejectAcceptance()" (click)="rejectAcceptance()">
+            Từ chối tiếp nhận
+          </button>
+        </article>
+
+        <article class="action-box">
+          <div>
+            <strong>Phản hồi</strong>
+            <span>Gửi ghi chú trao đổi vào lịch sử xử lý.</span>
+          </div>
+          <textarea
+            class="action-input"
+            [ngModel]="feedbackDraft()"
+            (ngModelChange)="feedbackDraft.set($event)"
+            placeholder="Nhập nội dung phản hồi"></textarea>
+          <button class="ui-button-primary" type="button" (click)="sendFeedback()">Gửi phản hồi</button>
+        </article>
+
+        <article class="action-box">
+          <div>
+            <strong>Gia hạn</strong>
+            <span>Gửi yêu cầu gia hạn để người giao việc hoặc quản trị xác nhận.</span>
+          </div>
+          <input class="action-input" type="date" [ngModel]="extensionDate()" (ngModelChange)="extensionDate.set($event)" />
+          <textarea
+            class="action-input"
+            [ngModel]="extensionReason()"
+            (ngModelChange)="extensionReason.set($event)"
+            placeholder="Lý do xin gia hạn"></textarea>
+          <button class="ui-button-primary" type="button" [disabled]="!!pendingExtensionRequest()" (click)="requestExtension()">
+            Xin gia hạn
+          </button>
+
+          <div class="extension-review" *ngIf="pendingExtensionRequest() as request">
+            <span>Đang chờ duyệt đến {{ request.requestedDueDate | date:'dd/MM/yyyy' }}</span>
+            <small>{{ request.reason }}</small>
+            <textarea
+              class="action-input"
+              [ngModel]="extensionReviewNote()"
+              (ngModelChange)="extensionReviewNote.set($event)"
+              placeholder="Ghi chú duyệt / từ chối"></textarea>
+            <div class="inline-actions">
+              <button class="ui-button-primary" type="button" (click)="approveExtensionRequest(request)">Duyệt</button>
+              <button class="ui-button-ghost danger-action" type="button" (click)="rejectExtensionRequest(request)">Từ chối</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="action-box">
+          <div>
+            <strong>Chuyển xử lý</strong>
+            <span>Chọn người phụ trách mới cho công việc.</span>
+          </div>
+          <select class="action-input" [ngModel]="transferAssigneeId()" (ngModelChange)="transferAssigneeId.set($any($event))">
+            <option [ngValue]="null">Chọn người xử lý</option>
+            <option *ngFor="let user of assigneeOptions()" [ngValue]="user.id">{{ user.label }}</option>
+          </select>
+          <textarea
+            class="action-input"
+            [ngModel]="transferReason()"
+            (ngModelChange)="transferReason.set($event)"
+            placeholder="Lý do chuyển người xử lý"></textarea>
+          <button class="ui-button-primary" type="button" (click)="transferAssignee()">Chuyển người xử lý</button>
+        </article>
+
+        <article class="action-box">
+          <div>
+            <strong>Kết thúc</strong>
+            <span>Hoàn thành, xác nhận hoàn thành hoặc hủy công việc.</span>
+          </div>
+          <textarea
+            class="action-input"
+            [ngModel]="completionNote()"
+            (ngModelChange)="completionNote.set($event)"
+            placeholder="Ghi chú hoàn thành"></textarea>
+          <div class="inline-actions">
+            <button class="ui-button-primary" type="button" [disabled]="!canComplete()" (click)="completeTask()">Hoàn thành</button>
+            <button class="ui-button-ghost" type="button" [disabled]="!canConfirmCompletion()" (click)="confirmCompletion()">
+              Xác nhận
+            </button>
+          </div>
+          <textarea
+            class="action-input"
+            [ngModel]="cancelReason()"
+            (ngModelChange)="cancelReason.set($event)"
+            placeholder="Lý do hủy"></textarea>
+          <button class="ui-button-ghost danger-action" type="button" [disabled]="!canCancel()" (click)="cancelTask()">Hủy</button>
+        </article>
+
+        <article class="action-box">
+          <div>
+            <strong>Tái sử dụng</strong>
+            <span>Sao chép nguyên mẫu hoặc tạo công việc tương tự.</span>
+          </div>
+          <button class="ui-button-primary" type="button" (click)="duplicateTask()">Sao chép công việc</button>
+          <button class="ui-button-ghost" type="button" (click)="createSimilarTask()">Tạo công việc tương tự</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="detail-section surface-card-muted">
+      <div class="section-head">
+        <div>
           <h3>Thông tin xử lý</h3>
           <p>Cột mốc thời gian và tầm nhìn nhanh để theo dõi công việc.</p>
         </div>
@@ -71,6 +193,43 @@
           <span>Cập nhật gần nhất</span>
           <strong>{{ task.updatedAt ? (task.updatedAt | date:'dd/MM/yyyy') : 'Mới tạo' }}</strong>
         </div>
+      </div>
+    </section>
+
+    <section class="detail-section surface-card-muted" *ngIf="(task.processingNotes ?? []).length">
+      <div class="section-head">
+        <div>
+          <h3>Phản hồi xử lý</h3>
+          <p>Các phản hồi và lý do phát sinh trong quá trình thao tác công việc.</p>
+        </div>
+      </div>
+
+      <div class="response-list">
+        <article class="response-item" *ngFor="let note of task.processingNotes ?? []">
+          {{ note }}
+        </article>
+      </div>
+    </section>
+
+    <section class="detail-section surface-card-muted" *ngIf="extensionRequests().length">
+      <div class="section-head">
+        <div>
+          <h3>Lịch sử gia hạn</h3>
+          <p>Theo dõi yêu cầu gia hạn, trạng thái duyệt và ghi chú phản hồi.</p>
+        </div>
+      </div>
+
+      <div class="extension-list">
+        <article class="extension-item" *ngFor="let request of extensionRequests()">
+          <div>
+            <strong>{{ request.requestedDueDate | date:'dd/MM/yyyy' }}</strong>
+            <span [class]="'extension-status status-' + request.status">
+              {{ request.status === 'pending' ? 'Chờ duyệt' : request.status === 'approved' ? 'Đã duyệt' : 'Từ chối' }}
+            </span>
+          </div>
+          <p>{{ request.reason }}</p>
+          <small *ngIf="request.reviewNote">{{ request.reviewNote }}</small>
+        </article>
       </div>
     </section>
 

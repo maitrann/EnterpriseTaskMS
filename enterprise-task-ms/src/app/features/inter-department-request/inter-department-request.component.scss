@@ -405,6 +405,13 @@
 
 .status-modal {
   width: min(520px, 100%);
+  overflow: visible;
+}
+
+.status-modal app-custom-select {
+  display: block;
+  position: relative;
+  z-index: 2;
 }
 
 .modal-head {

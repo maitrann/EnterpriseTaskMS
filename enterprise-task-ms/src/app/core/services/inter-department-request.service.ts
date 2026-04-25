@@ -130,7 +130,7 @@ export class InterDepartmentRequestService {
       return { success: false, message: 'Không tìm thấy phiếu yêu cầu.' };
     }
 
-    if (actor.departmentCode !== request.targetDepartmentId) {
+    if (!this.hasCoordinatorAccess(actor) && actor.departmentCode !== request.targetDepartmentId) {
       return { success: false, message: 'Chỉ bộ phận tiếp nhận mới được tiếp nhận phiếu này.' };
     }
 
@@ -176,7 +176,7 @@ export class InterDepartmentRequestService {
       return { success: false, message: 'Không tìm thấy phiếu hoặc người xử lý.' };
     }
 
-    if (actor.departmentCode !== request.targetDepartmentId) {
+    if (!this.hasCoordinatorAccess(actor) && actor.departmentCode !== request.targetDepartmentId) {
       return { success: false, message: 'Chỉ bộ phận tiếp nhận mới được phân công người xử lý.' };
     }
 
@@ -226,7 +226,7 @@ export class InterDepartmentRequestService {
       return { success: false, message: 'Không tìm thấy phiếu yêu cầu.' };
     }
 
-    if (actor.departmentCode !== request.targetDepartmentId) {
+    if (!this.hasCoordinatorAccess(actor) && actor.departmentCode !== request.targetDepartmentId) {
       return { success: false, message: 'Chỉ bộ phận xử lý mới được cập nhật trạng thái.' };
     }
 
@@ -266,7 +266,7 @@ export class InterDepartmentRequestService {
       return { success: false, message: 'Không tìm thấy phiếu yêu cầu.' };
     }
 
-    if (actor.id !== request.requesterUserId) {
+    if (!this.hasCoordinatorAccess(actor) && actor.id !== request.requesterUserId) {
       return { success: false, message: 'Chỉ bên yêu cầu tạo phiếu mới được xác nhận đóng phiếu.' };
     }
 
@@ -314,8 +314,9 @@ export class InterDepartmentRequestService {
 
     const isRequester = payload.actor.id === request.requesterUserId;
     const isTargetDepartment = payload.actor.departmentCode === request.targetDepartmentId;
+    const isCoordinator = this.hasCoordinatorAccess(payload.actor);
 
-    if (!isRequester && !isTargetDepartment) {
+    if (!isRequester && !isTargetDepartment && !isCoordinator) {
       return { success: false, message: 'Tài khoản hiện tại không thuộc luồng xử lý của phiếu.' };
     }
 
@@ -350,6 +351,10 @@ export class InterDepartmentRequestService {
 
   getVisibleRequests(actor: MockAuthUser | null) {
     if (!actor) {
+      return this.requests();
+    }
+
+    if (this.hasCoordinatorAccess(actor)) {
       return this.requests();
     }
 
@@ -447,6 +452,16 @@ export class InterDepartmentRequestService {
     }
 
     return isRequester ? 'waiting-target' : 'waiting-requester';
+  }
+
+  private hasCoordinatorAccess(actor: MockAuthUser) {
+    const role = actor.role?.toLowerCase() ?? '';
+    return (
+      actor.requestAccessRole === 'coordinator' ||
+      role.includes('admin') ||
+      role.includes('lanh dao') ||
+      role.includes('lãnh đạo')
+    );
   }
 
   private getSlaPolicy(type: RequestType) {

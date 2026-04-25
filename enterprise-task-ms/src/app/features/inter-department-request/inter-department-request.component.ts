@@ -163,7 +163,7 @@ export class InterDepartmentRequestComponent {
 
   openCreateModal() {
     const user = this.currentUser();
-    if (!user?.canCreateRequest) {
+    if (!user || (!user.canCreateRequest && !this.hasCoordinatorAccess(user))) {
       this.feedbackMessage.set('Tài khoản hiện tại không có quyền tạo yêu cầu.');
       return;
     }
@@ -364,22 +364,46 @@ export class InterDepartmentRequestComponent {
 
   canAcknowledge(request: InterDepartmentRequest) {
     const user = this.currentUser();
-    return !!user && user.departmentCode === request.targetDepartmentId && request.status === 'new';
+    return (
+      !!user &&
+      (this.hasCoordinatorAccess(user) || user.departmentCode === request.targetDepartmentId) &&
+      request.status === 'new'
+    );
   }
 
   canAssign(request: InterDepartmentRequest) {
     const user = this.currentUser();
-    return !!user && user.departmentCode === request.targetDepartmentId && request.status === 'received';
+    return (
+      !!user &&
+      (this.hasCoordinatorAccess(user) || user.departmentCode === request.targetDepartmentId) &&
+      request.status === 'received'
+    );
   }
 
   canUpdateStatus(request: InterDepartmentRequest) {
     const user = this.currentUser();
-    return !!user && user.departmentCode === request.targetDepartmentId && !!request.ownerId;
+    return (
+      !!user &&
+      (this.hasCoordinatorAccess(user) || user.departmentCode === request.targetDepartmentId) &&
+      !!request.ownerId
+    );
   }
 
   canClose(request: InterDepartmentRequest) {
     const user = this.currentUser();
-    return !!user && user.id === request.requesterUserId && request.status === 'done';
+    return (
+      !!user &&
+      (this.hasCoordinatorAccess(user) || user.id === request.requesterUserId) &&
+      request.status === 'done'
+    );
+  }
+
+  getSessionRoleLabel(user: MockAuthUser) {
+    if (this.hasCoordinatorAccess(user)) {
+      return 'Điều phối';
+    }
+
+    return user.requestAccessRole === 'requester' ? 'Bên gửi' : 'Bên nhận';
   }
 
   getStatusLabel(status: RequestStatus) {
@@ -456,5 +480,15 @@ export class InterDepartmentRequestComponent {
       result[field.key] = '';
       return result;
     }, {});
+  }
+
+  private hasCoordinatorAccess(user: MockAuthUser) {
+    const role = user.role?.toLowerCase() ?? '';
+    return (
+      user.requestAccessRole === 'coordinator' ||
+      role.includes('admin') ||
+      role.includes('lanh dao') ||
+      role.includes('lãnh đạo')
+    );
   }
 }
