@@ -67,6 +67,8 @@
     </div>
   </section>
 
+  <p class="transition-note" *ngIf="transitionMessage()">{{ transitionMessage() }}</p>
+
   <section class="board">
     <article class="column" *ngFor="let status of visibleStatuses()">
       <header
@@ -91,8 +93,16 @@
         class="task-list"
         (cdkDropListDropped)="drop($event, status.id)">
         <ng-container *ngIf="getTasks(status.id).length; else emptyState">
-          <div class="task-item" *ngFor="let task of getTasks(status.id); trackBy: getTrackByTaskId" cdkDrag>
-            <app-task-card [task]="task" (open)="openTask($event)" (edit)="openEdit(task)"></app-task-card>
+          <div
+            class="task-item"
+            *ngFor="let task of getTasks(status.id); trackBy: getTrackByTaskId"
+            cdkDrag
+            [cdkDragDisabled]="!canEditTask(task)">
+            <app-task-card
+              [task]="task"
+              [canEdit]="canEditTask(task)"
+              (open)="openTask($event)"
+              (edit)="openEdit(task)"></app-task-card>
           </div>
         </ng-container>
 
@@ -117,6 +127,7 @@
   [task]="editingTask()!"
   [formOptions]="formOptions()"
   [parentTaskOptions]="editParentTaskOptions()"
+  [canManageClosedTasks]="canManageClosedTasks()"
   (close)="closeEditModal()"
   (save)="saveTask($event)"></app-task-edit-modal>
 

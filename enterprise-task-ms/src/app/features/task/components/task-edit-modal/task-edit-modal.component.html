@@ -126,12 +126,13 @@
           <div class="field-stack">
             <label class="field-label">Trạng thái</label>
             <app-custom-select
-              [options]="statuses"
+              [options]="availableStatuses()"
               [value]="task.statusId ?? null"
               helperLabel="Chọn một trạng thái"
               placeholder="Chọn trạng thái"
               searchPlaceholder="Tìm trạng thái..."
               (valueChange)="updateStatus($event)"></app-custom-select>
+            <small class="field-helper">{{ transitionHint() }}</small>
           </div>
 
           <div class="field-stack">

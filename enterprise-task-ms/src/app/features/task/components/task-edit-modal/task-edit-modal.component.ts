@@ -2,7 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { getTaskStatusLabel, TASK_STATUS_OPTIONS } from '../../../../core/constants/task-status.constants';
+import {
+  canTransitionTaskStatus,
+  getAllowedNextStatusIds,
+  getAllowedStatusOptions,
+  getTaskStatusLabel,
+  TASK_STATUS_OPTIONS
+} from '../../../../core/constants/task-status.constants';
 import { TaskFormOptions, TaskMemberOption } from '../../../../core/models/task-form.model';
 import { Task } from '../../../../core/models/task.model';
 import {
@@ -22,6 +28,7 @@ export class TaskEditModalComponent {
 
   @Input({ required: true }) formOptions!: TaskFormOptions;
   @Input() parentTaskOptions: Array<{ value: number; label: string }> = [];
+  @Input() canManageClosedTasks = false;
 
   @Input({ required: true }) set task(value: Task) {
     this._task = {
@@ -32,6 +39,7 @@ export class TaskEditModalComponent {
       tags: [...(value.tags ?? [])],
       processingNotes: [...(value.processingNotes ?? [])]
     };
+    this.originalStatusId.set(value.statusId);
     this.attachmentDraft.set('');
     this.tagDraft.set('');
     this.processingNoteDraft.set('');
@@ -52,6 +60,7 @@ export class TaskEditModalComponent {
   ];
 
   readonly statuses = TASK_STATUS_OPTIONS;
+  readonly originalStatusId = signal<number | undefined>(undefined);
 
   readonly attachmentDraft = signal('');
   readonly tagDraft = signal('');
@@ -116,6 +125,23 @@ export class TaskEditModalComponent {
     this.filteredUsers().map((user) => this.mapUserToOption(user))
   );
 
+  readonly availableStatuses = computed(() => {
+    const currentStatus = this.originalStatusId();
+    const currentOption = this.statuses.find((status) => status.value === currentStatus);
+    const nextOptions = getAllowedStatusOptions(currentStatus, this.canManageClosedTasks);
+
+    return currentOption ? [currentOption, ...nextOptions] : nextOptions;
+  });
+
+  readonly transitionHint = computed(() => {
+    const nextStatusIds = getAllowedNextStatusIds(this.originalStatusId(), this.canManageClosedTasks);
+    if (!nextStatusIds.length) {
+      return 'Trạng thái hiện tại đã ở điểm kết thúc, không còn bước chuyển tiếp tiếp theo.';
+    }
+
+    return `Có thể chuyển sang: ${nextStatusIds.map((statusId) => getTaskStatusLabel(statusId)).join(' / ')}.`;
+  });
+
   readonly validationMessage = computed(() => {
     if (!this.task.title?.trim()) {
       return 'Tên công việc không được để trống.';
@@ -127,6 +153,15 @@ export class TaskEditModalComponent {
 
     if (this.startDateValue && this.dueDateValue && this.dueDateValue < this.startDateValue) {
       return 'Deadline không được nhỏ hơn ngày bắt đầu.';
+    }
+
+    if (
+      this.task.statusId &&
+      this.originalStatusId() &&
+      this.task.statusId !== this.originalStatusId() &&
+      !canTransitionTaskStatus(this.originalStatusId(), this.task.statusId, this.canManageClosedTasks)
+    ) {
+      return `Không thể chuyển từ "${getTaskStatusLabel(this.originalStatusId())}" sang "${getTaskStatusLabel(this.task.statusId)}".`;
     }
 
     return '';
@@ -211,7 +246,18 @@ export class TaskEditModalComponent {
   }
 
   updateStatus(value: string | number | null | Array<string | number>) {
-    this.task.statusId = typeof value === 'number' ? value : this.task.statusId;
+    if (typeof value !== 'number') {
+      return;
+    }
+
+    if (value === this.originalStatusId()) {
+      this.task.statusId = value;
+      return;
+    }
+
+    if (canTransitionTaskStatus(this.originalStatusId(), value, this.canManageClosedTasks)) {
+      this.task.statusId = value;
+    }
   }
 
   updatePriority(value: string | number | null | Array<string | number>) {

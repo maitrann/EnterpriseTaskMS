@@ -2,6 +2,7 @@ import { Inject, Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { AUTH_DATA_SOURCE, AuthDataSource } from '../data-sources/auth.datasource';
+import { Task } from '../models/task.model';
 import { User } from '../models/user.model';
 
 const AUTH_STORAGE_KEY = 'etms-auth-user';
@@ -74,6 +75,29 @@ export class AuthService {
 
   isAuthenticated() {
     return this.isLoggedIn();
+  }
+
+  hasSpecialTaskPermission() {
+    const role = this.user()?.role?.toLowerCase() ?? '';
+    return role.includes('admin') || role.includes('lanh dao') || role.includes('lãnh đạo');
+  }
+
+  canEditTask(task: Task) {
+    const user = this.user();
+
+    if (!user) {
+      return false;
+    }
+
+    if (this.hasSpecialTaskPermission()) {
+      return true;
+    }
+
+    if (!task.departmentId || !user.departmentId) {
+      return false;
+    }
+
+    return task.departmentId === user.departmentId;
   }
 
   private restoreUser(): User | null {

@@ -145,6 +145,12 @@
   gap: 8px;
 }
 
+.field-helper {
+  color: var(--etms-text-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
 .field-span-2 {
   grid-column: span 2;
 }

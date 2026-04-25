@@ -12,6 +12,7 @@ import { Task } from '../../../../core/models/task.model';
 })
 export class TaskCardComponent {
   @Input() task!: Task;
+  @Input() canEdit = true;
 
   @Output() open = new EventEmitter<Task>();
   @Output() edit = new EventEmitter<void>();
@@ -64,6 +65,10 @@ export class TaskCardComponent {
       default:
         return 'Đúng tiến độ';
     }
+  }
+
+  get isOverdueHighlight() {
+    return this.task.statusId === 10 || this.dueStatus === 'overdue';
   }
 
   get assigneeLabel() {

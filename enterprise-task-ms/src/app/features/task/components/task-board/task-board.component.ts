@@ -7,9 +7,14 @@ import {
   transferArrayItem
 } from '@angular/cdk/drag-drop';
 
-import { TASK_STATUS_DEFINITIONS } from '../../../../core/constants/task-status.constants';
+import {
+  canTransitionTaskStatus,
+  getAllowedNextStatusIds,
+  TASK_STATUS_DEFINITIONS
+} from '../../../../core/constants/task-status.constants';
 import { CreateTaskInput } from '../../../../core/models/task-form.model';
 import { Task } from '../../../../core/models/task.model';
+import { AuthService } from '../../../../core/services/auth.service';
 import { TaskService } from '../../../../core/services/task.service';
 import {
   CustomSelectComponent,
@@ -36,6 +41,7 @@ import { TaskEditModalComponent } from '../task-edit-modal/task-edit-modal.compo
   styleUrl: './task-board.component.scss'
 })
 export class TaskBoardComponent {
+  private readonly authService = inject(AuthService);
   private readonly taskService = inject(TaskService);
   private readonly statusPresets = {
     focus: [1, 2, 3, 5, 10],
@@ -49,6 +55,7 @@ export class TaskBoardComponent {
   readonly selectedTask = signal<Task | null>(null);
   readonly editingTask = signal<Task | null>(null);
   readonly isCreateModalOpen = signal(false);
+  readonly transitionMessage = signal('');
 
   readonly search = signal('');
   readonly filterPriority = signal<number | null>(null);
@@ -71,6 +78,7 @@ export class TaskBoardComponent {
   });
 
   readonly statuses = TASK_STATUS_DEFINITIONS;
+  readonly canManageClosedTasks = computed(() => this.authService.hasSpecialTaskPermission());
   readonly statusViewOptions = [
     { value: 'focus' as const, label: 'Trọng tâm', helper: 'Giữ các trạng thái cần theo dõi nhiều nhất' },
     { value: 'active' as const, label: 'Đang xử lý', helper: 'Nhóm các trạng thái vận hành trong ngày' },
@@ -144,6 +152,7 @@ export class TaskBoardComponent {
     this.search.set('');
     this.filterPriority.set(null);
     this.statusView.set('focus');
+    this.transitionMessage.set('');
   }
 
   setStatusView(view: 'focus' | 'active' | 'closing' | 'all') {
@@ -155,8 +164,10 @@ export class TaskBoardComponent {
   }
 
   getConnectedDropLists(currentStatusId: number) {
+    const allowedStatusIds = getAllowedNextStatusIds(currentStatusId, this.canManageClosedTasks());
+
     return this.visibleStatuses()
-      .filter((status) => status.id !== currentStatusId)
+      .filter((status) => allowedStatusIds.includes(status.id))
       .map((status) => this.getDropListId(status.id));
   }
 
@@ -177,6 +188,11 @@ export class TaskBoardComponent {
   }
 
   openEdit(task: Task) {
+    if (!this.authService.canEditTask(task)) {
+      this.transitionMessage.set('Bạn không có quyền sửa công việc của bộ phận khác.');
+      return;
+    }
+
     this.editingTask.set({ ...task });
   }
 
@@ -199,8 +215,14 @@ export class TaskBoardComponent {
   }
 
   saveTask(updated: Task) {
-    this.taskService.updateTask(updated);
+    const result = this.taskService.updateTask(updated);
+    if (!result.success) {
+      this.transitionMessage.set(result.message ?? 'Không thể cập nhật công việc.');
+      return;
+    }
+
     this.editingTask.set(null);
+    this.transitionMessage.set('');
   }
 
   getDueState(task: Task): 'normal' | 'warning' | 'overdue' {
@@ -233,6 +255,19 @@ export class TaskBoardComponent {
       return;
     }
 
+    const movedTask = event.previousContainer.data[event.previousIndex];
+    if (!this.authService.canEditTask(movedTask)) {
+      this.transitionMessage.set('Bạn không có quyền cập nhật công việc của bộ phận khác.');
+      return;
+    }
+
+    if (!canTransitionTaskStatus(movedTask?.statusId, newStatus, this.canManageClosedTasks())) {
+      this.transitionMessage.set(
+        `Không thể chuyển từ "${this.getStatusLabel(movedTask?.statusId)}" sang "${this.getStatusLabel(newStatus)}".`
+      );
+      return;
+    }
+
     transferArrayItem(
       event.previousContainer.data,
       event.container.data,
@@ -240,9 +275,18 @@ export class TaskBoardComponent {
       event.currentIndex
     );
 
-    const movedTask = event.container.data[event.currentIndex];
-    movedTask.statusId = newStatus;
+    const movedTaskInTarget = event.container.data[event.currentIndex];
+    movedTaskInTarget.statusId = newStatus;
+    this.transitionMessage.set('');
 
     this.taskService.replaceAll([...this.tasks()]);
+  }
+
+  getStatusLabel(statusId?: number) {
+    return this.statuses.find((status) => status.id === statusId)?.label ?? 'Chưa xác định';
+  }
+
+  canEditTask(task: Task) {
+    return this.authService.canEditTask(task);
   }
 }

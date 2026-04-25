@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject } from '@angular/core';
+import { Component, ElementRef, HostListener, computed, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
 import { AuthService } from '../../core/services/auth.service';
@@ -13,11 +13,14 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class HeaderComponent {
   private readonly authService = inject(AuthService);
+  private readonly elementRef = inject(ElementRef<HTMLElement>);
+
+  readonly isUserMenuOpen = signal(false);
 
   readonly quickStats = [
-    { label: 'Dang xu ly', value: '24' },
-    { label: 'Sap den han', value: '08' },
-    { label: 'Can xac nhan', value: '05' }
+    { label: 'Đang xử lý', value: '24' },
+    { label: 'Sắp đến hạn', value: '08' },
+    { label: 'Cần xác nhận', value: '05' }
   ];
 
   readonly userProfile = computed(() => {
@@ -37,7 +40,23 @@ export class HeaderComponent {
     };
   });
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
+      this.isUserMenuOpen.set(false);
+    }
+  }
+
+  toggleUserMenu() {
+    this.isUserMenuOpen.update((value) => !value);
+  }
+
+  openProfile() {
+    this.isUserMenuOpen.set(false);
+  }
+
   logout() {
+    this.isUserMenuOpen.set(false);
     this.authService.logout();
   }
 }

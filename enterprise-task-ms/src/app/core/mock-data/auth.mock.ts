@@ -10,6 +10,7 @@ export const MOCK_ADMIN_USER: MockAuthUser = {
   email: 'admin@etms.local',
   fullName: 'Tran Thi Thao',
   role: 'System Admin',
+  departmentId: 1,
   isActive: true,
   createdAt: new Date('2026-04-01T08:00:00'),
   password: 'Admin@123'

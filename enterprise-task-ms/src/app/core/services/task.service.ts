@@ -5,6 +5,7 @@ import { TASK_DATA_SOURCE, TaskDataSource } from '../data-sources/task.datasourc
 import { CreateTaskInput, TaskFormOptions } from '../models/task-form.model';
 import { TaskActivity } from '../models/task-activity.model';
 import { Task } from '../models/task.model';
+import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
@@ -16,7 +17,10 @@ export class TaskService {
     this.tasks().filter((task) => !TASK_TERMINAL_STATUS_IDS.includes(task.statusId ?? -1))
   );
 
-  constructor(@Inject(TASK_DATA_SOURCE) private readonly taskDataSource: TaskDataSource) {
+  constructor(
+    @Inject(TASK_DATA_SOURCE) private readonly taskDataSource: TaskDataSource,
+    private readonly authService: AuthService
+  ) {
     this.tasks.set(this.taskDataSource.getTasks());
     this.activities.set(this.taskDataSource.getTaskActivities());
     this.formOptions.set(this.taskDataSource.getTaskFormOptions());
@@ -94,6 +98,22 @@ export class TaskService {
   }
 
   updateTask(updatedTask: Task) {
+    const currentTask = this.getById(updatedTask.id);
+
+    if (!currentTask) {
+      return {
+        success: false,
+        message: 'Không tìm thấy công việc để cập nhật.'
+      };
+    }
+
+    if (!this.authService.canEditTask(currentTask)) {
+      return {
+        success: false,
+        message: 'Bạn không có quyền sửa công việc của bộ phận khác.'
+      };
+    }
+
     this.tasks.update((tasks) =>
       tasks.map((task) =>
         task.id === updatedTask.id
@@ -108,6 +128,12 @@ export class TaskService {
           : task
       )
     );
+
+    this.recordTaskUpdateActivities(currentTask, updatedTask);
+
+    return {
+      success: true
+    };
   }
 
   replaceAll(tasks: Task[]) {
@@ -124,5 +150,41 @@ export class TaskService {
       securityLevels: [],
       sources: []
     };
+  }
+
+  private recordTaskUpdateActivities(previousTask: Task, updatedTask: Task) {
+    const userId = this.authService.user()?.id ?? 1;
+    const now = new Date();
+    const nextActivities: TaskActivity[] = [];
+
+    if (previousTask.assigneeId !== updatedTask.assigneeId) {
+      nextActivities.push({
+        id: Date.now() + nextActivities.length,
+        taskId: updatedTask.id,
+        userId,
+        actionType: 'assignee_change',
+        oldValue: previousTask.assigneeId ? `User ${previousTask.assigneeId}` : 'Chưa phân công',
+        newValue: updatedTask.assigneeId ? `User ${updatedTask.assigneeId}` : 'Chưa phân công',
+        createdAt: now
+      });
+    }
+
+    if (previousTask.statusId !== updatedTask.statusId) {
+      nextActivities.push({
+        id: Date.now() + nextActivities.length + 10,
+        taskId: updatedTask.id,
+        userId,
+        actionType: 'status_change',
+        oldValue: previousTask.statusId ? `Trạng thái ${previousTask.statusId}` : 'Chưa xác định',
+        newValue: updatedTask.statusId ? `Trạng thái ${updatedTask.statusId}` : 'Chưa xác định',
+        createdAt: now
+      });
+    }
+
+    if (!nextActivities.length) {
+      return;
+    }
+
+    this.activities.update((activities) => [...nextActivities, ...activities]);
   }
 }
