@@ -1,11 +1,17 @@
 import { InjectionToken } from '@angular/core';
 
-import { InterDepartmentRequest } from '../models/inter-department-request.model';
+import {
+  InterDepartmentRequest,
+  RequestDepartmentRef,
+  RequestOwnerRef,
+  RequestSlaPolicy
+} from '../models/inter-department-request.model';
 
 export interface InterDepartmentRequestDataSource {
   getRequests(): InterDepartmentRequest[];
-  getDepartmentOptions(): string[];
-  getOwnerOptions(): string[];
+  getDepartmentOptions(): RequestDepartmentRef[];
+  getOwnerOptions(): RequestOwnerRef[];
+  getSlaPolicies(): RequestSlaPolicy[];
 }
 
 export const INTER_DEPARTMENT_REQUEST_DATA_SOURCE = new InjectionToken<InterDepartmentRequestDataSource>(

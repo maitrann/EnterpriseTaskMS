@@ -11,6 +11,7 @@ const AUTH_TOKEN_KEY = 'etms-auth-token';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly mockAdminUser: ReturnType<AuthDataSource['getMockAdminUser']>;
+  private readonly mockUsers: ReturnType<AuthDataSource['getMockUsers']>;
 
   readonly user = signal<User | null>(this.restoreUser());
   readonly isLoggedIn = computed(() => !!this.user() && !!localStorage.getItem(AUTH_TOKEN_KEY));
@@ -20,6 +21,7 @@ export class AuthService {
     @Inject(AUTH_DATA_SOURCE) private readonly authDataSource: AuthDataSource
   ) {
     this.mockAdminUser = this.authDataSource.getMockAdminUser();
+    this.mockUsers = this.authDataSource.getMockUsers();
   }
 
   get mockCredentials() {
@@ -31,20 +33,20 @@ export class AuthService {
 
   login(email: string, password: string) {
     const normalizedEmail = email.trim().toLowerCase();
+    const matchedUser = this.mockUsers.find(
+      (user) => user.email?.toLowerCase() === normalizedEmail && user.password === password
+    );
 
-    if (
-      normalizedEmail !== this.mockAdminUser.email?.toLowerCase() ||
-      password !== this.mockAdminUser.password
-    ) {
+    if (!matchedUser) {
       return {
         success: false,
-        message: 'Thong tin dang nhap khong dung. Thu lai tai khoan admin mock.'
+        message: 'Thong tin dang nhap khong dung. Thu lai mot tai khoan mock hop le.'
       };
     }
 
-    const { password: _password, ...safeUser } = this.mockAdminUser;
+    const { password: _password, ...safeUser } = matchedUser;
 
-    localStorage.setItem(AUTH_TOKEN_KEY, 'mock-token-admin');
+    localStorage.setItem(AUTH_TOKEN_KEY, `mock-token-${safeUser.id}`);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(safeUser));
     this.user.set(safeUser);
     this.router.navigate(['/dashboard']);
@@ -63,12 +65,12 @@ export class AuthService {
 
   forgotPassword(email: string) {
     const normalizedEmail = email.trim().toLowerCase();
-    const isKnownAccount = normalizedEmail === this.mockAdminUser.email?.toLowerCase();
+    const knownUser = this.mockUsers.find((user) => user.email?.toLowerCase() === normalizedEmail);
 
     return {
       success: true,
-      message: isKnownAccount
-        ? 'Da gui huong dan dat lai mat khau mock cho tai khoan admin@etms.local.'
+      message: knownUser
+        ? `Da gui huong dan dat lai mat khau mock cho tai khoan ${knownUser.email}.`
         : 'Neu email ton tai trong he thong, huong dan dat lai mat khau se duoc gui toi hop thu do.'
     };
   }
