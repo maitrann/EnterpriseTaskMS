@@ -40,7 +40,7 @@ export class AuthService {
     if (!matchedUser) {
       return {
         success: false,
-        message: 'Thong tin dang nhap khong dung. Thu lai mot tai khoan mock hop le.'
+        message: 'Thông tin đăng nhập không đúng. Vui lòng thử lại bằng một tài khoản mẫu hợp lệ.'
       };
     }
 
@@ -70,8 +70,8 @@ export class AuthService {
     return {
       success: true,
       message: knownUser
-        ? `Da gui huong dan dat lai mat khau mock cho tai khoan ${knownUser.email}.`
-        : 'Neu email ton tai trong he thong, huong dan dat lai mat khau se duoc gui toi hop thu do.'
+        ? `Đã gửi hướng dẫn đặt lại mật khẩu mẫu cho tài khoản ${knownUser.email}.`
+        : 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi tới hộp thư đó.'
     };
   }
 

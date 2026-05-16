@@ -8,6 +8,7 @@ import {
 import { TASK_DATA_SOURCE, TaskDataSource } from '../data-sources/task.datasource';
 import { CreateTaskInput, TaskFormOptions } from '../models/task-form.model';
 import { TaskActivity } from '../models/task-activity.model';
+import { SubTask, SubTaskInput } from '../models/subtask.model';
 import { Task, TaskExtensionRequest } from '../models/task.model';
 import { AuthService } from './auth.service';
 
@@ -48,6 +49,11 @@ export class TaskService {
     return this.activities().filter((activity) => activity.taskId === taskId);
   }
 
+  getSubtasksByTaskId(taskId: number) {
+    const task = this.getById(taskId);
+    return task ? this.cloneSubtasks(this.getTaskSubtasks(task)) : [];
+  }
+
   getParentTaskOptions(currentTaskId?: number) {
     return this.tasks()
       .filter((task) => task.id !== currentTaskId)
@@ -63,7 +69,7 @@ export class TaskService {
     const nextTask: Task = {
       id: nextId,
       code: `CV-${String(nextId).padStart(4, '0')}`,
-      projectId: 1,
+      projectId: input.projectId ?? 1,
       parentTaskId: input.parentTaskId,
       title: input.title.trim(),
       description: input.description?.trim(),
@@ -85,6 +91,8 @@ export class TaskService {
       tags: [...input.tags],
       processingNotes: [],
       extensionRequests: [],
+      subtasks: [],
+      subtaskProgressAutoSync: true,
       estimatedHours: input.estimatedHours ?? 0,
       actualHours: 0,
       createdAt: now,
@@ -324,8 +332,190 @@ export class TaskService {
         processingNotes: note ? [`Chuyển người xử lý: ${note}`, ...(current.processingNotes ?? [])] : current.processingNotes
       }),
       'transfer_assignee',
-      task.assigneeId ? `User ${task.assigneeId}` : 'Chưa phân công',
+      task.assigneeId ? `User ${task.assigneeId}` : 'Chưa chọn',
       `User ${assigneeId}`
+    );
+  }
+
+  createSubtask(taskId: number, input: SubTaskInput) {
+    const task = this.getById(taskId);
+
+    if (!task) {
+      return this.notFoundResult();
+    }
+
+    const title = input.title.trim();
+    if (!title) {
+      return {
+        success: false,
+        message: 'Cần nhập tên nhiệm vụ con.'
+      };
+    }
+
+    const deadlineCheck = this.validateSubtaskDeadline(task, input.dueDate);
+    if (!deadlineCheck.success) {
+      return deadlineCheck;
+    }
+
+    const subtasks = this.getTaskSubtasks(task);
+    const now = Date.now();
+    const progress = this.normalizeProgress(input.progress ?? 0);
+    const nextSubtask: SubTask = {
+      id: now,
+      taskId,
+      title,
+      assigneeId: input.assigneeId,
+      dueDate: input.dueDate,
+      progress,
+      done: progress === 100,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: progress === 100 ? now : undefined,
+      order: subtasks.length + 1
+    };
+
+    return this.applyTaskAction(
+      task,
+      (current) =>
+        this.withSubtaskRollup({
+          ...current,
+          subtasks: [...subtasks, nextSubtask]
+        }),
+      'subtask_create',
+      undefined,
+      title
+    );
+  }
+
+  updateSubtask(taskId: number, subtaskId: number, changes: Partial<SubTaskInput>) {
+    const task = this.getById(taskId);
+
+    if (!task) {
+      return this.notFoundResult();
+    }
+
+    const subtasks = this.getTaskSubtasks(task);
+    const subtask = subtasks.find((item) => item.id === subtaskId);
+    if (!subtask) {
+      return {
+        success: false,
+        message: 'Không tìm thấy nhiệm vụ con.'
+      };
+    }
+
+    const title = changes.title?.trim() ?? subtask.title;
+    if (!title) {
+      return {
+        success: false,
+        message: 'Cần nhập tên nhiệm vụ con.'
+      };
+    }
+
+    const dueDate = changes.dueDate === undefined ? subtask.dueDate : changes.dueDate;
+    const deadlineCheck = this.validateSubtaskDeadline(task, dueDate);
+    if (!deadlineCheck.success) {
+      return deadlineCheck;
+    }
+
+    const progress = this.normalizeProgress(changes.progress ?? subtask.progress);
+    const now = Date.now();
+
+    return this.applyTaskAction(
+      task,
+      (current) =>
+        this.withSubtaskRollup({
+          ...current,
+          subtasks: subtasks.map((item) =>
+            item.id === subtaskId
+              ? {
+                  ...item,
+                  title,
+                  assigneeId: changes.assigneeId === undefined ? item.assigneeId : changes.assigneeId,
+                  dueDate,
+                  progress,
+                  done: progress === 100,
+                  updatedAt: now,
+                  completedAt: progress === 100 ? item.completedAt ?? now : undefined
+                }
+              : item
+          )
+        }),
+      'subtask_update',
+      subtask.title,
+      title
+    );
+  }
+
+  toggleSubtaskDone(taskId: number, subtaskId: number) {
+    const task = this.getById(taskId);
+
+    if (!task) {
+      return this.notFoundResult();
+    }
+
+    const subtasks = this.getTaskSubtasks(task);
+    const subtask = subtasks.find((item) => item.id === subtaskId);
+    if (!subtask) {
+      return {
+        success: false,
+        message: 'Không tìm thấy nhiệm vụ con.'
+      };
+    }
+
+    const nextDone = !subtask.done;
+    const now = Date.now();
+
+    return this.applyTaskAction(
+      task,
+      (current) =>
+        this.withSubtaskRollup({
+          ...current,
+          subtasks: subtasks.map((item) =>
+            item.id === subtaskId
+              ? {
+                  ...item,
+                  done: nextDone,
+                  progress: nextDone ? 100 : 0,
+                  updatedAt: now,
+                  completedAt: nextDone ? now : undefined
+                }
+              : item
+          )
+        }),
+      'subtask_toggle',
+      subtask.done ? 'Done' : 'Open',
+      nextDone ? 'Done' : 'Open'
+    );
+  }
+
+  deleteSubtask(taskId: number, subtaskId: number) {
+    const task = this.getById(taskId);
+
+    if (!task) {
+      return this.notFoundResult();
+    }
+
+    const subtasks = this.getTaskSubtasks(task);
+    const subtask = subtasks.find((item) => item.id === subtaskId);
+    if (!subtask) {
+      return {
+        success: false,
+        message: 'Không tìm thấy nhiệm vụ con.'
+      };
+    }
+
+    return this.applyTaskAction(
+      task,
+      (current) =>
+        this.withSubtaskRollup({
+          ...current,
+          subtasks: subtasks
+            .filter((item) => item.id !== subtaskId)
+            .map((item, index) => ({ ...item, order: index + 1 }))
+        }),
+      'subtask_delete',
+      subtask.title,
+      undefined
     );
   }
 
@@ -488,7 +678,10 @@ export class TaskService {
               attachmentNames: [...(updatedTask.attachmentNames ?? [])],
               tags: [...(updatedTask.tags ?? [])],
               processingNotes: [...(updatedTask.processingNotes ?? [])],
-              extensionRequests: [...(updatedTask.extensionRequests ?? [])]
+              extensionRequests: [...(updatedTask.extensionRequests ?? [])],
+              subtasks: this.cloneSubtasks(updatedTask.subtasks),
+              subtaskProgressAutoSync: updatedTask.subtaskProgressAutoSync ?? true,
+              parentCompletionSuggested: updatedTask.parentCompletionSuggested
             }
           : task
       )
@@ -527,7 +720,8 @@ export class TaskService {
         attachmentNames: [...(task.attachmentNames ?? [])],
         tags: [...(task.tags ?? [])],
         processingNotes: [...(task.processingNotes ?? [])],
-        extensionRequests: [...(task.extensionRequests ?? [])]
+        extensionRequests: [...(task.extensionRequests ?? [])],
+        subtasks: this.cloneSubtasks(task.subtasks)
       }),
       updatedAt: new Date()
     };
@@ -573,6 +767,9 @@ export class TaskService {
       tags: [...(task.tags ?? [])],
       processingNotes: [],
       extensionRequests: [],
+      subtasks: options.resetPeople ? [] : this.cloneSubtasksForTask(task.subtasks, nextId),
+      subtaskProgressAutoSync: task.subtaskProgressAutoSync ?? true,
+      parentCompletionSuggested: false,
       actualHours: 0,
       createdAt: now,
       updatedAt: now
@@ -586,6 +783,115 @@ export class TaskService {
       success: true,
       task: clonedTask
     };
+  }
+
+  private withSubtaskRollup(task: Task): Task {
+    const subtasks = task.subtasks ?? [];
+    const allSubtasksDone = !!subtasks.length && subtasks.every((subtask) => subtask.done);
+    const shouldSyncProgress = task.subtaskProgressAutoSync ?? true;
+    const progress = shouldSyncProgress && subtasks.length ? this.calculateSubtaskProgress(subtasks) : task.progress;
+    const suggestionNote = 'Tất cả nhiệm vụ con đã hoàn thành. Hệ thống gợi ý hoàn thành công việc hiện tại.';
+    const shouldSuggestParentCompletion =
+      allSubtasksDone &&
+      task.statusId !== TASK_STATUS_IDS.HOAN_THANH &&
+      task.statusId !== TASK_STATUS_IDS.DONG &&
+      task.statusId !== TASK_STATUS_IDS.HUY;
+
+    return {
+      ...task,
+      progress,
+      parentCompletionSuggested: shouldSuggestParentCompletion,
+      processingNotes:
+        shouldSuggestParentCompletion && !(task.processingNotes ?? []).includes(suggestionNote)
+          ? [suggestionNote, ...(task.processingNotes ?? [])]
+          : task.processingNotes
+    };
+  }
+
+  private getTaskSubtasks(task: Task) {
+    return task.subtasks?.length ? this.cloneSubtasks(task.subtasks) : this.createDefaultSubtasks(task);
+  }
+
+  private createDefaultSubtasks(task: Task): SubTask[] {
+    const baseTitles = [
+      'Xác nhận phạm vi và đầu việc liên quan',
+      'Cập nhật tiến độ và minh chứng xử lý',
+      'Rà soát kết quả trước khi bàn giao'
+    ];
+
+    return baseTitles.map((title, index) => {
+      const progress =
+        index === 0
+          ? task.progress >= 35
+            ? 100
+            : task.progress
+          : index === 1
+            ? Math.max(0, task.progress - 35)
+            : Math.max(0, task.progress - 70);
+
+      return {
+        id: task.id * 100 + index + 1,
+        taskId: task.id,
+        title,
+        assigneeId: task.assigneeId,
+        dueDate: task.dueDate,
+        progress: Math.min(100, progress),
+        done: progress >= 100,
+        createdAt: Date.now() - index * 3600000,
+        order: index + 1
+      };
+    });
+  }
+
+  private calculateSubtaskProgress(subtasks: SubTask[]) {
+    if (!subtasks.length) {
+      return 0;
+    }
+
+    const total = subtasks.reduce((sum, subtask) => sum + this.normalizeProgress(subtask.progress), 0);
+    return Math.round(total / subtasks.length);
+  }
+
+  private validateSubtaskDeadline(task: Task, dueDate?: Date): TaskActionResult {
+    if (!task.dueDate || !dueDate || this.authService.hasSpecialTaskPermission()) {
+      return { success: true };
+    }
+
+    const parentDueDate = new Date(task.dueDate);
+    const subtaskDueDate = new Date(dueDate);
+    const graceDays = 2;
+    const latestAllowedDate = new Date(parentDueDate);
+    latestAllowedDate.setDate(parentDueDate.getDate() + graceDays);
+
+    if (subtaskDueDate.getTime() <= latestAllowedDate.getTime()) {
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      message:
+        'Deadline nhiệm vụ con không được vượt quá công việc hiện tại quá 2 ngày nếu không có quyền đặc biệt.'
+    };
+  }
+
+  private normalizeProgress(value: number) {
+    return Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+  }
+
+  private cloneSubtasks(subtasks?: SubTask[]) {
+    return (subtasks ?? []).map((subtask) => ({ ...subtask, dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined }));
+  }
+
+  private cloneSubtasksForTask(subtasks: SubTask[] | undefined, taskId: number) {
+    const now = Date.now();
+    return (subtasks ?? []).map((subtask, index) => ({
+      ...subtask,
+      id: now + index,
+      taskId,
+      dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined,
+      createdAt: now,
+      updatedAt: now
+    }));
   }
 
   private createEmptyFormOptions(): TaskFormOptions {
@@ -619,8 +925,8 @@ export class TaskService {
     if (previousTask.assigneeId !== updatedTask.assigneeId) {
       pushActivity(
         'assignee_change',
-        previousTask.assigneeId ? `User ${previousTask.assigneeId}` : 'Chưa phân công',
-        updatedTask.assigneeId ? `User ${updatedTask.assigneeId}` : 'Chưa phân công'
+        previousTask.assigneeId ? `User ${previousTask.assigneeId}` : 'Chưa chọn',
+        updatedTask.assigneeId ? `User ${updatedTask.assigneeId}` : 'Chưa chọn'
       );
     }
 
@@ -639,8 +945,8 @@ export class TaskService {
     if (previousTask.priorityId !== updatedTask.priorityId) {
       pushActivity(
         'priority_change',
-        previousTask.priorityId ? `Mức ${previousTask.priorityId}` : 'Chưa gán',
-        updatedTask.priorityId ? `Mức ${updatedTask.priorityId}` : 'Chưa gán'
+        previousTask.priorityId ? `Mức ${previousTask.priorityId}` : 'Chưa chọn',
+        updatedTask.priorityId ? `Mức ${updatedTask.priorityId}` : 'Chưa chọn'
       );
     }
 

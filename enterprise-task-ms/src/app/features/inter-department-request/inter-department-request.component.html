@@ -123,7 +123,7 @@
         <div class="meta-item">
           <span>Bên nhận</span>
           <strong>{{ request.targetDepartment }}</strong>
-          <small>{{ request.owner || 'Chưa phân công' }}</small>
+          <small>{{ request.owner || 'Chưa chọn' }}</small>
         </div>
 
         <div class="meta-item">
@@ -321,7 +321,7 @@
       <div class="meta-item">
         <span>Bên nhận</span>
         <strong>{{ selectedRequest()!.targetDepartment }}</strong>
-        <small>{{ selectedRequest()!.owner || 'Chưa phân công' }}</small>
+        <small>{{ selectedRequest()!.owner || 'Chưa chọn' }}</small>
       </div>
       <div class="meta-item">
         <span>Trạng thái</span>

@@ -42,6 +42,7 @@ export interface CreateTaskInput {
   attachmentNames: string[];
   tags: string[];
   estimatedHours?: number;
+  projectId?: number;
   parentTaskId?: number;
   source?: string;
 }

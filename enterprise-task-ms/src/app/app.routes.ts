@@ -30,6 +30,11 @@ export const routes: Routes = [
             .then(m => m.TaskBoardComponent)
       },
       {
+        path: 'projects',
+        loadComponent: () =>
+          import('./features/project/project.component').then((m) => m.ProjectComponent)
+      },
+      {
         path: 'departments',
         loadComponent: () =>
           import('./features/department/department.component').then((m) => m.DepartmentComponent)

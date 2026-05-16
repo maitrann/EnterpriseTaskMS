@@ -82,14 +82,14 @@
           </div>
 
           <div class="field-stack">
-            <label class="field-label">Công việc cha</label>
+            <label class="field-label">Dự án</label>
             <app-custom-select
-              [options]="parentSelectOptions()"
-              [value]="draft().parentTaskId"
-              helperLabel="Tùy chọn"
-              placeholder="Không có công việc cha"
-              searchPlaceholder="Tìm công việc cha..."
-              (valueChange)="updateField('parentTaskId', $any($event) ?? null)"></app-custom-select>
+              [options]="projectSelectOptions()"
+              [value]="draft().projectId"
+              helperLabel="Chọn dự án quản lý"
+              placeholder="Chọn dự án"
+              searchPlaceholder="Tìm dự án..."
+              (valueChange)="updateField('projectId', $any($event) ?? null)"></app-custom-select>
           </div>
 
           <div class="field-stack">
@@ -152,7 +152,7 @@
 
       <section class="form-section surface-card-muted">
         <div class="section-head">
-          <h4>Timeline và mức độ ưu tiên</h4>
+          <h4>Mốc thời gian và mức độ ưu tiên</h4>
           <p>Cân đối deadline, mức ưu tiên, mức độ khẩn và mức độ bảo mật ngay từ lúc tạo.</p>
         </div>
 

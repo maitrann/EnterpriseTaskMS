@@ -34,7 +34,7 @@ export const MOCK_AUTH_USERS: MockAuthUser[] = [
     role: 'HR Executive',
     departmentId: 101,
     departmentCode: 'hr-admin',
-    departmentName: 'Hanh chinh - Nhan su',
+    departmentName: 'Hành chính - Nhân sự',
     requestAccessRole: 'requester',
     canCreateRequest: true,
     isActive: true,

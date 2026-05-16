@@ -11,12 +11,16 @@ import { TaskComment } from '../../../../core/models/task-comment.model';
 import { TaskFormOptions } from '../../../../core/models/task-form.model';
 import { Task, TaskExtensionRequest } from '../../../../core/models/task.model';
 import { TaskActionResult, TaskService } from '../../../../core/services/task.service';
+import {
+  CustomSelectComponent,
+  CustomSelectOption
+} from '../../../../shared/ui/custom-select/custom-select.component';
 import { TaskActivityTimelineComponent } from '../task-activity-timeline/task-activity-timeline.component';
 
 @Component({
   selector: 'app-task-detail-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule, TaskActivityTimelineComponent],
+  imports: [CommonModule, FormsModule, CustomSelectComponent, TaskActivityTimelineComponent],
   templateUrl: './task-detail-drawer.component.html',
   styleUrl: './task-detail-drawer.component.scss'
 })
@@ -43,6 +47,9 @@ export class TaskDetailDrawerComponent {
   readonly subtasks = signal<SubTask[]>([]);
   readonly taskComments = signal<TaskComment[]>([]);
   readonly newSubtaskTitle = signal('');
+  readonly newSubtaskAssigneeId = signal<number | null>(null);
+  readonly newSubtaskDueDate = signal('');
+  readonly newSubtaskProgress = signal(0);
   readonly editingSubtaskId = signal<number | null>(null);
   readonly editingTitle = signal('');
   readonly actionMessage = signal('');
@@ -62,14 +69,25 @@ export class TaskDetailDrawerComponent {
       return 0;
     }
 
-    return Math.round((list.filter((subtask) => subtask.done).length / list.length) * 100);
+    return Math.round(list.reduce((sum, subtask) => sum + subtask.progress, 0) / list.length);
   });
 
   readonly taskActivities = computed(() => this.taskService.getActivitiesByTaskId(this.task.id));
   readonly assigneeOptions = computed(() => this.formOptions?.users ?? []);
+  readonly assigneeSelectOptions = computed<CustomSelectOption<number | null>[]>(() => [
+    { value: null, label: 'Chưa chọn' },
+    ...(this.formOptions?.users ?? []).map((user) => ({
+      value: user.id,
+      label: user.label,
+      description: user.role
+    }))
+  ]);
   readonly extensionRequests = computed(() => this.task.extensionRequests ?? []);
   readonly pendingExtensionRequest = computed(
     () => this.extensionRequests().find((request) => request.status === 'pending') ?? null
+  );
+  readonly parentCompletionSuggested = computed(
+    () => !!this.subtasks().length && this.subtasks().every((subtask) => subtask.done) && this.task.progress === 100
   );
 
   readonly overviewItems = computed(() => [
@@ -90,7 +108,7 @@ export class TaskDetailDrawerComponent {
       case 4:
         return 'Khẩn cấp';
       default:
-        return 'Chưa gán';
+        return 'Chưa chọn';
     }
   }
 
@@ -139,28 +157,29 @@ export class TaskDetailDrawerComponent {
       return;
     }
 
-    const list = this.subtasks();
-    const newSubtask: SubTask = {
-      id: Date.now(),
-      taskId: this.task.id,
+    const result = this.taskService.createSubtask(this.task.id, {
       title,
-      done: false,
-      createdAt: Date.now(),
-      order: list.length + 1
-    };
+      assigneeId: this.newSubtaskAssigneeId() ?? undefined,
+      dueDate: this.fromDateInputValue(this.newSubtaskDueDate()),
+      progress: this.newSubtaskProgress()
+    });
 
-    this.subtasks.set([...list, newSubtask]);
-    this.newSubtaskTitle.set('');
+    this.applySubtaskResult(result, 'Đã thêm nhiệm vụ con.');
+
+    if (result.success) {
+      this.newSubtaskTitle.set('');
+      this.newSubtaskAssigneeId.set(null);
+      this.newSubtaskDueDate.set('');
+      this.newSubtaskProgress.set(0);
+    }
   }
 
   toggleSubtask(subtask: SubTask) {
-    this.subtasks.set(
-      this.subtasks().map((item) => (item.id === subtask.id ? { ...item, done: !item.done } : item))
-    );
+    this.applySubtaskResult(this.taskService.toggleSubtaskDone(this.task.id, subtask.id), 'Đã cập nhật nhiệm vụ con.');
   }
 
   deleteSubtask(id: number) {
-    this.subtasks.set(this.subtasks().filter((item) => item.id !== id));
+    this.applySubtaskResult(this.taskService.deleteSubtask(this.task.id, id), 'Đã xóa nhiệm vụ con.');
   }
 
   acceptTask() {
@@ -305,11 +324,37 @@ export class TaskDetailDrawerComponent {
       return;
     }
 
-    this.subtasks.set(
-      this.subtasks().map((item) => (item.id === subtask.id ? { ...item, title: nextTitle } : item))
+    this.applySubtaskResult(
+      this.taskService.updateSubtask(this.task.id, subtask.id, { title: nextTitle }),
+      'Đã cập nhật nhiệm vụ con.'
     );
 
     this.editingSubtaskId.set(null);
+  }
+
+  updateSubtaskProgress(subtask: SubTask, value: string | number) {
+    this.applySubtaskResult(
+      this.taskService.updateSubtask(this.task.id, subtask.id, { progress: Number(value) }),
+      'Đã cập nhật tiến độ nhiệm vụ con.'
+    );
+  }
+
+  updateSubtaskAssignee(subtask: SubTask, value: number | null) {
+    this.applySubtaskResult(
+      this.taskService.updateSubtask(this.task.id, subtask.id, { assigneeId: value ?? undefined }),
+      'Đã cập nhật người xử lý nhiệm vụ con.'
+    );
+  }
+
+  updateSubtaskDueDate(subtask: SubTask, value: string) {
+    this.applySubtaskResult(
+      this.taskService.updateSubtask(this.task.id, subtask.id, { dueDate: this.fromDateInputValue(value) }),
+      'Đã cập nhật deadline nhiệm vụ con.'
+    );
+  }
+
+  toInputDate(value?: Date) {
+    return this.toDateInputValue(value);
   }
 
   cancelEdit() {
@@ -317,24 +362,12 @@ export class TaskDetailDrawerComponent {
   }
 
   private seedMockDetails(task: Task) {
-    const baseTitles = [
-      'Xác nhận phạm vi và đầu việc liên quan',
-      'Cập nhật tiến độ và minh chứng xử lý',
-      'Rà soát kết quả trước khi bàn giao'
-    ];
-
-    const seededSubtasks = baseTitles.map((title, index) => ({
-      id: task.id * 100 + index + 1,
-      taskId: task.id,
-      title,
-      done: index === 0 ? task.progress >= 35 : index === 1 ? task.progress >= 70 : task.progress >= 95,
-      createdAt: Date.now() - index * 3600000,
-      order: index + 1
-    }));
-
-    this.subtasks.set(seededSubtasks);
+    this.subtasks.set(this.taskService.getSubtasksByTaskId(task.id));
     this.taskComments.set([]);
     this.newSubtaskTitle.set('');
+    this.newSubtaskAssigneeId.set(task.assigneeId ?? null);
+    this.newSubtaskDueDate.set(this.toDateInputValue(task.dueDate));
+    this.newSubtaskProgress.set(0);
     this.editingSubtaskId.set(null);
     this.editingTitle.set('');
     this.actionMessage.set('');
@@ -358,6 +391,14 @@ export class TaskDetailDrawerComponent {
     }
   }
 
+  private applySubtaskResult(result: TaskActionResult, successMessage: string) {
+    this.applyActionResult(result, successMessage);
+
+    if (result.success && result.task) {
+      this.subtasks.set(result.task.subtasks ?? []);
+    }
+  }
+
   private applyCreateResult(result: TaskActionResult, successMessage: string) {
     this.actionMessage.set(result.success ? successMessage : result.message ?? 'Không thể tạo công việc.');
 
@@ -377,5 +418,9 @@ export class TaskDetailDrawerComponent {
     const day = String(date.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
+  }
+
+  private fromDateInputValue(value: string) {
+    return value ? new Date(`${value}T00:00:00`) : undefined;
   }
 }

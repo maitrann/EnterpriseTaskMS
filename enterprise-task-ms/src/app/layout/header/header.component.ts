@@ -3,6 +3,7 @@ import { Component, ElementRef, HostListener, computed, inject, signal } from '@
 import { RouterModule } from '@angular/router';
 
 import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 
 @Component({
   selector: 'app-header',
@@ -13,9 +14,11 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class HeaderComponent {
   private readonly authService = inject(AuthService);
+  private readonly themeService = inject(ThemeService);
   private readonly elementRef = inject(ElementRef<HTMLElement>);
 
   readonly isUserMenuOpen = signal(false);
+  readonly themeMode = this.themeService.mode;
 
   readonly quickStats = [
     { label: 'Đang xử lý', value: '24' },
@@ -25,7 +28,7 @@ export class HeaderComponent {
 
   readonly userProfile = computed(() => {
     const user = this.authService.user();
-    const displayName = user?.fullName || user?.username || 'Guest User';
+    const displayName = user?.fullName || user?.username || 'Người dùng';
     const initials = displayName
       .split(' ')
       .filter(Boolean)
@@ -35,8 +38,8 @@ export class HeaderComponent {
 
     return {
       name: displayName,
-      role: user?.role || 'Workspace Viewer',
-      initials: initials || 'GU'
+      role: user?.role || 'Người xem',
+      initials: initials || 'ND'
     };
   });
 
@@ -45,6 +48,10 @@ export class HeaderComponent {
     if (!this.elementRef.nativeElement.contains(event.target as Node)) {
       this.isUserMenuOpen.set(false);
     }
+  }
+
+  toggleTheme() {
+    this.themeService.toggleTheme();
   }
 
   toggleUserMenu() {

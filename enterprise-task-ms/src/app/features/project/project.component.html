@@ -1,0 +1,125 @@
+<div class="project-shell ds-page">
+  <section class="project-hero ds-hero surface-card">
+    <div class="hero-copy">
+      <p class="ds-hero-kicker">Phân hệ dự án</p>
+      <h2 class="ds-hero-title">Quản lý dự án, danh sách công việc và tiến độ tổng hợp</h2>
+      <p class="ds-muted-text">
+        Dự án là lớp gom nhiều công việc. Mỗi công việc vẫn giữ nhiệm vụ con riêng trong màn chi tiết task.
+      </p>
+    </div>
+
+    <div class="hero-summary ds-grid-3">
+      <article class="ds-metric-card surface-card-muted" *ngFor="let card of summaryCards()">
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.helper }}</small>
+      </article>
+    </div>
+  </section>
+
+  <section class="project-layout">
+    <aside class="project-list surface-card">
+      <header class="ds-panel-head">
+        <div>
+          <h3>Danh sách dự án</h3>
+          <p>Chọn một dự án để xem các công việc bên trong.</p>
+        </div>
+      </header>
+
+      <button
+        class="project-row"
+        type="button"
+        *ngFor="let overview of overviews()"
+        [class.active]="selectedProjectId() === overview.project.id"
+        (click)="selectProject(overview.project.id)">
+        <span class="project-code">{{ overview.project.code }}</span>
+        <strong>{{ overview.project.name }}</strong>
+        <small>{{ overview.taskCount }} công việc · {{ overview.completionRate }}%</small>
+      </button>
+    </aside>
+
+    <main class="project-detail" *ngIf="selectedOverview() as overview">
+      <section class="detail-header surface-card">
+        <div class="detail-title">
+          <span class="ui-pill ui-pill-info">{{ overview.project.code }}</span>
+          <h3>{{ overview.project.name }}</h3>
+          <p>{{ overview.project.description }}</p>
+        </div>
+
+        <div class="detail-meta">
+          <div>
+            <span>Phòng ban</span>
+            <strong>{{ getDepartmentLabel(overview.project.departmentId) }}</strong>
+          </div>
+          <div>
+            <span>Chủ trì</span>
+            <strong>{{ getUserLabel(overview.project.ownerId) }}</strong>
+          </div>
+          <div>
+            <span>Kết thúc</span>
+            <strong>{{ overview.project.endDate ? (overview.project.endDate | date:'dd/MM/yyyy') : 'Chưa có' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="project-kpis ds-grid-3">
+        <article class="ds-metric-card surface-card-muted">
+          <span>Tiến độ dự án</span>
+          <strong>{{ overview.completionRate }}%</strong>
+          <div class="ds-progress">
+            <div class="ds-progress-fill accent" [style.width.%]="overview.completionRate"></div>
+          </div>
+        </article>
+
+        <article class="ds-metric-card surface-card-muted">
+          <span>Công việc đang mở</span>
+          <strong>{{ overview.activeCount }}</strong>
+          <small>Chưa đóng hoặc hủy</small>
+        </article>
+
+        <article class="ds-metric-card surface-card-muted">
+          <span>Trễ hạn</span>
+          <strong>{{ overview.overdueCount }}</strong>
+          <small>Cần ưu tiên xử lý</small>
+        </article>
+      </section>
+
+      <section class="task-panel surface-card">
+        <header class="ds-panel-head">
+          <div>
+            <h3>Công việc thuộc dự án</h3>
+            <p>Tiến độ dự án được tính trung bình từ các công việc bên dưới.</p>
+          </div>
+          <a class="ds-action" routerLink="/tasks">Mở task board</a>
+        </header>
+
+        <div class="task-table" *ngIf="overview.tasks.length; else emptyProject">
+          <button class="task-row" type="button" *ngFor="let task of overview.tasks" (click)="openTask(task)">
+            <span class="task-code">{{ task.code }}</span>
+            <span class="task-title">{{ task.title }}</span>
+            <span class="task-owner">{{ getUserLabel(task.assigneeId) }}</span>
+            <span class="task-status">{{ getStatusLabel(task.statusId) }}</span>
+            <span class="task-due" [class]="getDueClass(task)">
+              {{ task.dueDate ? (task.dueDate | date:'dd/MM/yyyy') : 'Chưa có' }}
+            </span>
+            <span class="task-progress">{{ task.progress }}%</span>
+          </button>
+        </div>
+
+        <ng-template #emptyProject>
+          <div class="ds-empty-state">
+            <strong>Dự án chưa có công việc</strong>
+            <span>Tạo công việc mới và chọn dự án này trong form công việc.</span>
+          </div>
+        </ng-template>
+      </section>
+    </main>
+  </section>
+</div>
+
+<app-task-detail-drawer
+  *ngIf="selectedTask()"
+  [task]="selectedTask()!"
+  [formOptions]="formOptions()"
+  (taskChanged)="handleTaskChanged($event)"
+  (close)="closeTask()"></app-task-detail-drawer>

@@ -2,8 +2,8 @@ import { DepartmentCard } from '../models/department-card.model';
 
 export const DEPARTMENT_CARD_MOCK: DepartmentCard[] = [
   {
-    name: 'Hanh chinh - Nhan su',
-    description: 'Xu ly de xuat nhan su, hanh chinh van phong va cac workflow noi bo.',
+    name: 'Hành chính - Nhân sự',
+    description: 'Xử lý đề xuất nhân sự, hành chính văn phòng và các workflow nội bộ.',
     members: 10,
     activeTasks: 18,
     completedTasks: 32,
@@ -33,7 +33,7 @@ export const DEPARTMENT_CARD_MOCK: DepartmentCard[] = [
   },
   {
     name: 'IT noi bo',
-    description: 'Ho tro he thong, xu ly su co va trien khai nhu cau cong nghe cho van phong.',
+    description: 'Hỗ trợ hệ thống, xử lý sự cố và triển khai nhu cầu công nghệ cho văn phòng.',
     members: 7,
     activeTasks: 9,
     completedTasks: 24,

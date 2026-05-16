@@ -74,7 +74,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'ke-hoach-thang',
     attachmentNames: ['ke-hoach-tuan-18.xlsx'],
     tags: ['Ke hoach', 'Van hanh'],
-    processingNotes: ['Da gom dau viec tu cac phong ban, dang cho xac nhan moc uu tien.'],
+    processingNotes: ['Đã gom đầu việc từ các phòng ban, đang chờ xác nhận mốc ưu tiên.'],
     estimatedHours: 12,
     actualHours: 5
   },
@@ -120,7 +120,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'van-ban-den',
     attachmentNames: ['du-tru-workshop-q2.xlsx'],
     tags: ['Ngan sach', 'Phe duyet'],
-    processingNotes: ['Da doi chieu hoa don nha cung cap, cho lanh dao phe duyet han muc.'],
+    processingNotes: ['Đã đối chiếu hóa đơn nhà cung cấp, chờ lãnh đạo phê duyệt hạn mức.'],
     estimatedHours: 10,
     actualHours: 8
   },
@@ -143,7 +143,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'chi-dao-lanh-dao',
     attachmentNames: ['quy-trinh-lien-phong-v2.docx'],
     tags: ['Quy trinh', 'Lien phong'],
-    processingNotes: ['Da co ban nhap luong xu ly, can soat lai vai tro dieu phoi.'],
+    processingNotes: ['Đã có bản nháp luồng xử lý, cần soát lại vai trò điều phối.'],
     estimatedHours: 18,
     actualHours: 7
   },
@@ -194,7 +194,7 @@ const taskSeeds: TaskSeed[] = [
     actualHours: 0
   },
   {
-    title: 'Chuan hoa mau bien ban hop dieu phoi',
+    title: 'Chuẩn hóa mẫu biên bản họp điều phối',
     description: 'Thiet lap mau bien ban co muc hanh dong, nguoi phu trach va deadline ro rang.',
     taskType: 'van-hanh',
     departmentId: 4,
@@ -212,7 +212,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'ke-hoach-thang',
     attachmentNames: ['mau-bien-ban-hop.docx'],
     tags: ['Mau bieu', 'Van hanh'],
-    processingNotes: ['Da ban giao mau bien ban cho cac phong ban su dung thu.'],
+    processingNotes: ['Đã bàn giao mẫu biên bản cho các phòng ban sử dụng thử.'],
     estimatedHours: 8,
     actualHours: 7
   },
@@ -258,12 +258,12 @@ const taskSeeds: TaskSeed[] = [
     source: 'yeu-cau-lien-phong',
     attachmentNames: ['vpn-error-log.txt'],
     tags: ['CNTT', 'Qua han'],
-    processingNotes: ['Da khoanh vung loi policy, can cap nhat lai nhom quyen cho 3 tai khoan.'],
+    processingNotes: ['Đã khoanh vùng lỗi policy, cần cập nhật lại nhóm quyền cho 3 tài khoản.'],
     estimatedHours: 6,
     actualHours: 5
   },
   {
-    title: 'Dong bo danh muc phong ban voi dashboard',
+    title: 'Đồng bộ danh mục phòng ban với dashboard',
     description: 'Kiem tra lai ten phong ban, tai active va completed de dashboard hien thi nhat quan.',
     taskType: 'van-hanh',
     departmentId: 1,
@@ -303,8 +303,8 @@ const taskSeeds: TaskSeed[] = [
     progress: 100,
     source: 'chi-dao-lanh-dao',
     attachmentNames: ['email-thong-bao-nghi-le.docx'],
-    tags: ['Thong bao', 'Da dong'],
-    processingNotes: ['Da xac nhan noi dung va dong cong viec.'],
+    tags: ['Thông báo', 'Đã đóng'],
+    processingNotes: ['Đã xác nhận nội dung và đóng công việc.'],
     estimatedHours: 5,
     actualHours: 4
   },
@@ -327,7 +327,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'ke-hoach-thang',
     attachmentNames: ['kiem-ke-thiet-bi.xlsx'],
     tags: ['Hanh chinh', 'Bao tri'],
-    processingNotes: ['Da kiem ke khu lam viec tang 5, con phong hop tang 6.'],
+    processingNotes: ['Đã kiểm kê khu làm việc tầng 5, còn phòng họp tầng 6.'],
     estimatedHours: 12,
     actualHours: 3
   },
@@ -373,7 +373,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'chi-dao-lanh-dao',
     attachmentNames: ['huong-dan-task-board.md'],
     tags: ['Tai lieu', 'Task board'],
-    processingNotes: ['Da cap nhat phan action layer, dang bo sung anh minh hoa.'],
+    processingNotes: ['Đã cập nhật phần action layer, đang bổ sung ảnh minh họa.'],
     estimatedHours: 10,
     actualHours: 5
   },
@@ -396,7 +396,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'yeu-cau-lien-phong',
     attachmentNames: ['testcase-yeu-cau-lien-phong.xlsx'],
     tags: ['Kiem thu', 'Lien phong'],
-    processingNotes: ['Da pass cac case chinh, cho xac nhan UI dropdown status modal.'],
+    processingNotes: ['Đã pass các case chính, chờ xác nhận UI dropdown trạng thái.'],
     estimatedHours: 8,
     actualHours: 7
   },
@@ -419,13 +419,13 @@ const taskSeeds: TaskSeed[] = [
     source: 'ke-hoach-thang',
     attachmentNames: [],
     tags: ['Dao tao', 'Quy trinh'],
-    processingNotes: ['Can chot lich sau khi quy trinh duoc phe duyet.'],
+    processingNotes: ['Cần chốt lịch sau khi quy trình được phê duyệt.'],
     estimatedHours: 6,
     actualHours: 0
   },
   {
     title: 'Hoan tat danh sach tai khoan he thong noi bo',
-    description: 'Dong bo danh sach tai khoan dang hoat dong va vo hieu hoa cac tai khoan nghi viec.',
+    description: 'Đồng bộ danh sách tài khoản đang hoạt động và vô hiệu hóa các tài khoản nghỉ việc.',
     taskType: 'van-hanh',
     departmentId: 5,
     statusId: TASK_STATUS_IDS.HOAN_THANH,
@@ -442,7 +442,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'ke-hoach-thang',
     attachmentNames: ['danh-sach-tai-khoan-thang-04.xlsx'],
     tags: ['CNTT', 'Tai khoan'],
-    processingNotes: ['Da hoan tat doi chieu voi HR va khoa 4 tai khoan khong con su dung.'],
+    processingNotes: ['Đã hoàn tất đối chiếu với HR và khóa 4 tài khoản không còn sử dụng.'],
     estimatedHours: 12,
     actualHours: 11
   },
@@ -465,7 +465,7 @@ const taskSeeds: TaskSeed[] = [
     source: 'yeu-cau-lien-phong',
     attachmentNames: [],
     tags: ['Huy', 'Tai lieu'],
-    processingNotes: ['Da huy theo xac nhan cua phong ban yeu cau.'],
+    processingNotes: ['Đã hủy theo xác nhận của phòng ban yêu cầu.'],
     estimatedHours: 2,
     actualHours: 0
   }
@@ -475,7 +475,7 @@ export const TASK_MOCK: Task[] = taskSeeds.map((task, index) => ({
   ...task,
   id: index + 1,
   code: `CV-${String(index + 1).padStart(4, '0')}`,
-  projectId: 1,
+  projectId: (index % 4) + 1,
   createdAt: now,
   updatedAt: now
 }));

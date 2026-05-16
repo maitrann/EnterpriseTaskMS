@@ -1,21 +1,21 @@
-<div class="department-shell">
-  <section class="hero surface-card">
+<div class="department-shell ds-page">
+  <section class="hero ds-hero surface-card">
     <div class="hero-copy">
-      <p class="eyebrow">Phong ban va co cau</p>
-      <h2>Theo doi tai van hanh va dau moi phu trach cua tung bo phan</h2>
-      <p>
-        Man nay hien dang dung mock data de chot bo cuc quan ly co cau to chuc, muc tai cong viec va
-        thong tin dieu phoi noi bo truoc khi noi backend.
+      <p class="ds-hero-kicker">Phòng ban và cơ cấu</p>
+      <h2 class="ds-hero-title">Theo dõi tải vận hành và đầu mối phụ trách của từng bộ phận</h2>
+      <p class="ds-muted-text">
+        Màn này hiện đang dùng dữ liệu mẫu để chốt bố cục quản lý cơ cấu tổ chức, mức tải công việc
+        và thông tin điều phối nội bộ trước khi nối backend.
       </p>
     </div>
 
-    <div class="hero-action">
-      <button class="ui-button-primary" type="button">Them phong ban mock</button>
+    <div class="ds-action-row">
+      <button class="ds-action primary" type="button">Thêm phòng ban mẫu</button>
     </div>
   </section>
 
   <section class="summary-strip">
-    <article class="summary-card surface-card-muted" *ngFor="let item of summaryCards()">
+    <article class="ds-metric-card surface-card-muted" *ngFor="let item of summaryCards()">
       <span>{{ item.label }}</span>
       <strong>{{ item.value }}</strong>
       <small>{{ item.helper }}</small>
@@ -26,7 +26,7 @@
     <article class="department-card surface-card" *ngFor="let department of departments()" [ngClass]="'tone-' + department.tone">
       <div class="card-head">
         <div>
-          <p class="mini-label">Department</p>
+          <p class="mini-label">Phòng ban</p>
           <h3>{{ department.name }}</h3>
         </div>
 
@@ -37,33 +37,33 @@
 
       <div class="meta-grid">
         <div class="meta-item">
-          <span>Thanh vien</span>
+          <span>Thành viên</span>
           <strong>{{ department.members }}</strong>
         </div>
 
         <div class="meta-item">
-          <span>Task active</span>
+          <span>Đang xử lý</span>
           <strong>{{ department.activeTasks }}</strong>
         </div>
 
         <div class="meta-item">
-          <span>Task done</span>
+          <span>Đã hoàn tất</span>
           <strong>{{ department.completedTasks }}</strong>
         </div>
 
         <div class="meta-item">
-          <span>Dau moi</span>
+          <span>Đầu mối</span>
           <strong>{{ department.lead }}</strong>
         </div>
       </div>
 
       <div class="card-footer">
         <div class="progress-copy">
-          <span>Ty le hoan tat</span>
+          <span>Tỷ lệ hoàn tất</span>
           <strong>{{ department.completedTasks }}/{{ department.completedTasks + department.activeTasks }}</strong>
         </div>
 
-        <button class="ui-button-ghost" type="button">Xem chi tiet</button>
+        <button class="ds-action" type="button">Xem chi tiết</button>
       </div>
     </article>
   </section>

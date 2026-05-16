@@ -32,7 +32,7 @@ export class TaskCardComponent {
       case 4:
         return 'Khẩn cấp';
       default:
-        return 'Chưa gán';
+        return 'Chưa chọn';
     }
   }
 

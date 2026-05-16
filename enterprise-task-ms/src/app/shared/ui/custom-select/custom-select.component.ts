@@ -35,6 +35,7 @@ export class CustomSelectComponent {
   @Input() emptyLabel = 'Không có lựa chọn';
   @Input() helperLabel = '';
   @Input() disabled = false;
+  @Input() size: 'default' | 'compact' = 'default';
 
   @Output() valueChange = new EventEmitter<string | number | null | Array<string | number>>();
 
@@ -62,10 +63,7 @@ export class CustomSelectComponent {
     }
 
     this.isOpen.update((value) => {
-      if (value) {
-        this.searchTerm.set('');
-      }
-
+      this.searchTerm.set('');
       return !value;
     });
   }

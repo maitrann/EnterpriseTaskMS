@@ -129,7 +129,7 @@
   *ngIf="editingTask()"
   [task]="editingTask()!"
   [formOptions]="formOptions()"
-  [parentTaskOptions]="editParentTaskOptions()"
+  [projectOptions]="projectOptions()"
   [canManageClosedTasks]="canManageClosedTasks()"
   (close)="closeEditModal()"
   (save)="saveTask($event)"></app-task-edit-modal>
@@ -138,6 +138,6 @@
   *ngIf="isCreateModalOpen()"
   [taskCode]="nextTaskCode()"
   [formOptions]="formOptions()"
-  [parentTaskOptions]="parentTaskOptions()"
+  [projectOptions]="projectOptions()"
   (close)="closeCreateModal()"
   (create)="createTask($event)"></app-task-create-modal>

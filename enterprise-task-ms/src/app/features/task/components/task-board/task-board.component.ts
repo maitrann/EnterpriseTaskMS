@@ -15,6 +15,7 @@ import {
 import { CreateTaskInput } from '../../../../core/models/task-form.model';
 import { Task } from '../../../../core/models/task.model';
 import { AuthService } from '../../../../core/services/auth.service';
+import { ProjectService } from '../../../../core/services/project.service';
 import { TaskService } from '../../../../core/services/task.service';
 import {
   CustomSelectComponent,
@@ -42,6 +43,7 @@ import { TaskEditModalComponent } from '../task-edit-modal/task-edit-modal.compo
 })
 export class TaskBoardComponent {
   private readonly authService = inject(AuthService);
+  private readonly projectService = inject(ProjectService);
   private readonly taskService = inject(TaskService);
   private readonly statusPresets = {
     focus: [1, 2, 3, 5, 10],
@@ -61,10 +63,7 @@ export class TaskBoardComponent {
   readonly filterPriority = signal<number | null>(null);
   readonly statusView = signal<'focus' | 'active' | 'closing' | 'all'>('focus');
 
-  readonly parentTaskOptions = computed(() => this.taskService.getParentTaskOptions());
-  readonly editParentTaskOptions = computed(() =>
-    this.taskService.getParentTaskOptions(this.editingTask()?.id)
-  );
+  readonly projectOptions = computed(() => this.projectService.getProjectOptions());
   readonly priorityFilterOptions: CustomSelectOption<number | null>[] = [
     { value: null, label: 'Tất cả' },
     { value: 1, label: 'Thấp' },

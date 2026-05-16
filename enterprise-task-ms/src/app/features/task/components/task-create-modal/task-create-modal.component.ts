@@ -28,7 +28,7 @@ type TaskDraft = {
   estimatedHours: number | null;
   attachmentNames: string[];
   tags: string[];
-  parentTaskId: number | null;
+  projectId: number | null;
   source: string;
 };
 
@@ -42,7 +42,7 @@ type TaskDraft = {
 export class TaskCreateModalComponent {
   @Input({ required: true }) taskCode!: string;
   @Input({ required: true }) formOptions!: TaskFormOptions;
-  @Input() parentTaskOptions: Array<{ value: number; label: string }> = [];
+  @Input() projectOptions: Array<{ value: number; label: string }> = [];
 
   @Output() close = new EventEmitter<void>();
   @Output() create = new EventEmitter<CreateTaskInput>();
@@ -63,7 +63,7 @@ export class TaskCreateModalComponent {
     estimatedHours: null,
     attachmentNames: [],
     tags: [],
-    parentTaskId: null,
+    projectId: 1,
     source: ''
   });
 
@@ -129,12 +129,12 @@ export class TaskCreateModalComponent {
     ]
   );
 
-  readonly parentSelectOptions = computed<CustomSelectOption[]>(() =>
+  readonly projectSelectOptions = computed<CustomSelectOption[]>(() =>
     [
-      { value: null, label: 'Không có công việc cha' },
-      ...this.parentTaskOptions.map((parent) => ({
-        value: parent.value,
-        label: parent.label
+      { value: null, label: 'Chưa chọn' },
+      ...this.projectOptions.map((project) => ({
+        value: project.value,
+        label: project.label
       }))
     ]
   );
@@ -206,7 +206,8 @@ export class TaskCreateModalComponent {
       estimatedHours: draft.estimatedHours ?? undefined,
       attachmentNames: draft.attachmentNames,
       tags: draft.tags,
-      parentTaskId: draft.parentTaskId ?? undefined,
+      projectId: draft.projectId ?? undefined,
+      parentTaskId: undefined,
       source: draft.source || undefined
     });
   }

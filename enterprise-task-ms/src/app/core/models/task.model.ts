@@ -1,3 +1,5 @@
+import { SubTask } from './subtask.model';
+
 export type TaskExtensionRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface TaskExtensionRequest {
@@ -42,6 +44,9 @@ export interface Task {
   tags?: string[];
   processingNotes?: string[];
   extensionRequests?: TaskExtensionRequest[];
+  subtasks?: SubTask[];
+  subtaskProgressAutoSync?: boolean;
+  parentCompletionSuggested?: boolean;
 
   estimatedHours?: number;
   actualHours?: number;

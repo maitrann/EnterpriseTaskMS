@@ -29,7 +29,7 @@ export class TaskActivityTimelineComponent {
       case 'status_change':
         return 'cap nhat trang thai';
       case 'priority_change':
-        return 'doi muc uu tien';
+        return 'đổi mức ưu tiên';
       case 'assignee_change':
         return 'doi nguoi phu trach';
       case 'progress_change':
@@ -41,9 +41,9 @@ export class TaskActivityTimelineComponent {
       case 'attachment_change':
         return 'cap nhat tep dinh kem';
       case 'deadline_change':
-        return 'doi deadline';
+        return 'đổi deadline';
       case 'processing_note_change':
-        return 'cap nhat ghi chu xu ly';
+        return 'cập nhật ghi chú xử lý';
       case 'accept_task':
         return 'nhan viec';
       case 'reject_acceptance':
@@ -55,19 +55,19 @@ export class TaskActivityTimelineComponent {
       case 'reject_extension':
         return 'tu choi gia han';
       case 'transfer_assignee':
-        return 'chuyen nguoi xu ly';
+        return 'chuyển người xử lý';
       case 'complete_task':
-        return 'hoan thanh cong viec';
+        return 'hoàn thành công việc';
       case 'confirm_completion':
         return 'xac nhan hoan thanh';
       case 'cancel_task':
-        return 'huy cong viec';
+        return 'hủy công việc';
       case 'duplicate_task':
-        return 'sao chep cong viec';
+        return 'sao chép công việc';
       case 'create_similar_task':
-        return 'tao cong viec tuong tu';
+        return 'tạo công việc tương tự';
       default:
-        return activity.actionType ?? 'cap nhat cong viec';
+        return activity.actionType ?? 'cập nhật công việc';
     }
   }
 

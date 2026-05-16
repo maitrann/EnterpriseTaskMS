@@ -55,7 +55,7 @@
       <section class="form-section surface-card-muted">
         <div class="section-head">
           <h4>Ngữ cảnh công việc</h4>
-          <p>Đồng bộ lại loại công việc, phòng ban, nguồn phát sinh và công việc cha giống như form tạo mới.</p>
+          <p>Đồng bộ lại loại công việc, phòng ban, nguồn phát sinh và dự án quản lý.</p>
         </div>
 
         <div class="field-grid">
@@ -82,14 +82,14 @@
           </div>
 
           <div class="field-stack">
-            <label class="field-label">Công việc cha</label>
+            <label class="field-label">Dự án</label>
             <app-custom-select
-              [options]="parentOptions()"
-              [value]="task.parentTaskId ?? null"
-              helperLabel="Tùy chọn"
-              placeholder="Không có công việc cha"
-              searchPlaceholder="Tìm công việc cha..."
-              (valueChange)="task.parentTaskId = $any($event) ?? undefined"></app-custom-select>
+              [options]="projectSelectOptions()"
+              [value]="task.projectId"
+              helperLabel="Chọn dự án quản lý"
+              placeholder="Chọn dự án"
+              searchPlaceholder="Tìm dự án..."
+              (valueChange)="task.projectId = $any($event) ?? 1; task.parentTaskId = undefined"></app-custom-select>
           </div>
 
           <div class="field-stack">

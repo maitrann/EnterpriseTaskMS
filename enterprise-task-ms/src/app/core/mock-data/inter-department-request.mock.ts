@@ -38,7 +38,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
     type: 'asset',
     title: 'Cap phat laptop va the gui xe cho nhan vien thu viec',
     description:
-      'Nhan vien moi bat dau lam vao sang thu Hai. Can cap laptop, tai khoan wifi va the gui xe truoc 08:30.',
+      'Nhân viên mới bắt đầu làm vào sáng thứ Hai. Cần cấp laptop, tài khoản wifi và thẻ gửi xe trước 08:30.',
     requesterDepartment: 'Hanh chinh - Nhan su',
     requesterDepartmentId: 'hr-admin',
     requesterName: 'Nguyen Minh Chau',
@@ -70,7 +70,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
       'Dia diem giao': 'Van phong tang 5'
     },
     latestMessage: 'Ben gui da tao phieu, dang cho IT tiep nhan.',
-    note: 'Can uu tien vi nhan su moi tham gia du an ngay trong tuan nay.',
+    note: 'Cần ưu tiên vì nhân sự mới tham gia dự án ngay trong tuần này.',
     messages: [
       {
         id: 'msg-001',
@@ -204,7 +204,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
     type: 'communication-design',
     title: 'Thiet ke poster truyen thong cho chuong trinh noi bo',
     description:
-      'Can poster doc 2 phien ban A3 va social square de truyen thong cho chuong trinh dao tao noi bo.',
+      'Cần poster dọc 2 phiên bản A3 và social square để truyền thông cho chương trình đào tạo nội bộ.',
     requesterDepartment: 'Hanh chinh - Nhan su',
     requesterDepartmentId: 'hr-admin',
     requesterName: 'Vu Thu Trang',
@@ -236,7 +236,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
       'Moc phat hanh': '29/04/2026'
     },
     latestMessage: 'Marketing da gui ban nhap, dang cho ben gui xac nhan noi dung.',
-    note: 'Can tong mau dong bo voi chuong trinh training quy 2.',
+    note: 'Cần tông màu đồng bộ với chương trình training quý 2.',
     messages: [
       {
         id: 'msg-005',
@@ -252,7 +252,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
         authorRole: 'processor',
         authorDepartment: 'Marketing',
         createdAt: '24/04/2026 08:40',
-        body: 'Da gui layout nhap 1, vui long xac nhan key visual va thong diep.'
+        body: 'Đã gửi layout nháp 1, vui lòng xác nhận key visual và thông điệp.'
       }
     ]
   },
@@ -262,7 +262,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
     type: 'legal',
     title: 'Ra soat phu luc hop dong thue dich vu van chuyen',
     description:
-      'Can bo phan phap che kiem tra dieu khoan bo sung ve SLA giao nhan va muc phat vi pham.',
+      'Cần bộ phận pháp chế kiểm tra điều khoản bổ sung về SLA giao nhận và mức phạt vi phạm.',
     requesterDepartment: 'Ke toan - Tai chinh',
     requesterDepartmentId: 'finance',
     requesterName: 'Pham Tuan Kiet',
@@ -310,7 +310,7 @@ export const INTER_DEPARTMENT_REQUEST_MOCK: InterDepartmentRequest[] = [
         authorRole: 'processor',
         authorDepartment: 'Phap che',
         createdAt: '22/04/2026 16:05',
-        body: 'Da cap nhat dieu khoan SLA, muc phat va de nghi ben yeu cau xac nhan dong phieu.'
+        body: 'Đã cập nhật điều khoản SLA, mức phạt và đề nghị bên yêu cầu xác nhận đóng phiếu.'
       }
     ]
   }

@@ -110,7 +110,7 @@ export class DashboardComponent {
       case 4:
         return 'Khẩn cấp';
       default:
-        return 'Chưa gán';
+        return 'Chưa chọn';
     }
   }
 }

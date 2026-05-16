@@ -1,22 +1,22 @@
-<div class="dashboard-shell">
-  <section class="hero surface-card">
+<div class="dashboard-shell ds-page">
+  <section class="hero ds-hero surface-card">
     <div class="hero-copy">
-      <p class="eyebrow">Dashboard dieu hanh</p>
-      <h2>Goc nhin tong quan de bat dau workflow sau khi dang nhap</h2>
-      <p>
-        Man nay dung mock data de minh test luong vao he thong, xem KPI nhanh va dieu huong sang
-        board task hoac cac phan he tiep theo.
+      <p class="ds-hero-kicker">Dashboard điều hành</p>
+      <h2 class="ds-hero-title">Góc nhìn tổng quan để bắt đầu workflow sau khi đăng nhập</h2>
+      <p class="ds-muted-text">
+        Màn này dùng dữ liệu mẫu để kiểm thử luồng vào hệ thống, xem KPI nhanh và điều hướng sang
+        board task hoặc các phân hệ tiếp theo.
       </p>
     </div>
 
-    <div class="hero-actions">
-      <a class="ui-button-primary" routerLink="/tasks">Mo task board</a>
-      <a class="ui-button-ghost" routerLink="/departments">Xem phong ban</a>
+    <div class="ds-action-row">
+      <a class="ds-action primary" routerLink="/tasks">Mở task board</a>
+      <a class="ds-action" routerLink="/departments">Xem phòng ban</a>
     </div>
   </section>
 
   <section class="kpi-grid">
-    <article class="kpi-card surface-card-muted" *ngFor="let item of kpis()" [ngClass]="'tone-' + item.tone">
+    <article class="ds-metric-card surface-card-muted" *ngFor="let item of kpis()" [ngClass]="'tone-' + item.tone">
       <span>{{ item.label }}</span>
       <strong>{{ item.value }}</strong>
       <small>{{ item.helper }}</small>
@@ -25,10 +25,10 @@
 
   <section class="dashboard-grid">
     <article class="panel surface-card">
-      <div class="panel-head">
+      <div class="ds-panel-head">
         <div>
-          <h3>Canh bao deadline</h3>
-          <p>Phan bo cong viec theo muc do sat deadline de uu tien xu ly.</p>
+          <h3>Cảnh báo deadline</h3>
+          <p>Phân bổ công việc theo mức độ sát deadline để ưu tiên xử lý.</p>
         </div>
       </div>
 
@@ -41,10 +41,10 @@
     </article>
 
     <article class="panel surface-card">
-      <div class="panel-head">
+      <div class="ds-panel-head">
         <div>
-          <h3>Tai theo phong ban</h3>
-          <p>So sanh khoi luong active va completed de nhin nhanh diem nghen.</p>
+          <h3>Tải theo phòng ban</h3>
+          <p>So sánh khối lượng đang xử lý và đã hoàn tất để nhìn nhanh điểm nghẽn.</p>
         </div>
       </div>
 
@@ -52,7 +52,7 @@
         <div class="department-row" *ngFor="let department of departmentLoad()">
           <div class="department-copy">
             <strong>{{ department.name }}</strong>
-            <span>{{ department.activeTasks }} active · {{ department.completedTasks }} done</span>
+            <span>{{ department.activeTasks }} đang xử lý · {{ department.completedTasks }} đã hoàn tất</span>
           </div>
 
           <div class="department-sla">{{ department.sla }}</div>
@@ -62,12 +62,12 @@
   </section>
 
   <section class="panel surface-card">
-    <div class="panel-head">
+    <div class="ds-panel-head">
       <div>
-        <h3>Cong viec can chu y</h3>
-        <p>Lay tu mock data de tao cam giac dashboard dieu hanh sau login.</p>
+        <h3>Công việc cần chú ý</h3>
+        <p>Lấy từ dữ liệu mẫu để mô phỏng dashboard điều hành sau đăng nhập.</p>
       </div>
-      <a class="text-link" routerLink="/tasks">Xem tat ca</a>
+      <a class="text-link" routerLink="/tasks">Xem tất cả</a>
     </div>
 
     <div class="spotlight-list">
@@ -86,13 +86,13 @@
 
         <div class="spotlight-meta">
           <div>
-            <span>Tien do</span>
+            <span>Tiến độ</span>
             <strong>{{ task.progress }}%</strong>
           </div>
 
           <div>
             <span>Deadline</span>
-            <strong>{{ task.dueDate ? (task.dueDate | date:'dd/MM/yyyy') : 'Chua co' }}</strong>
+            <strong>{{ task.dueDate ? (task.dueDate | date:'dd/MM/yyyy') : 'Chưa có' }}</strong>
           </div>
         </div>
       </article>

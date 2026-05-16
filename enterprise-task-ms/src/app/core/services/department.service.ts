@@ -20,11 +20,11 @@ export class DepartmentService {
     );
 
     return [
-      { label: 'Tong phong ban', value: departments.length, helper: 'Khoi van phong dang duoc mock' },
-      { label: 'Nhan su', value: totalMembers, helper: 'Tong thanh vien dang phan bo' },
-      { label: 'Task active', value: activeTasks, helper: 'Cong viec dang xu ly theo phong ban' },
-      { label: 'SLA trung binh', value: `${averageSla}%`, helper: 'Muc dap ung tiep nhan va xu ly' },
-      { label: 'Da hoan tat', value: completedTasks, helper: 'Dau viec da dong trong ky' }
+      { label: 'Tổng phòng ban', value: departments.length, helper: 'Khối văn phòng đang dùng dữ liệu mẫu' },
+      { label: 'Nhân sự', value: totalMembers, helper: 'Tổng thành viên đang phân bổ' },
+      { label: 'Task đang xử lý', value: activeTasks, helper: 'Công việc đang xử lý theo phòng ban' },
+      { label: 'SLA trung bình', value: `${averageSla}%`, helper: 'Mức đáp ứng tiếp nhận và xử lý' },
+      { label: 'Đã hoàn tất', value: completedTasks, helper: 'Đầu việc đã đóng trong kỳ' }
     ];
   });
 

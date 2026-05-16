@@ -1,4 +1,4 @@
-<div class="ui-custom-select" [class.is-disabled]="disabled">
+<div class="ui-custom-select" [class.is-disabled]="disabled" [class.is-compact]="size === 'compact'">
   <button class="select-trigger" type="button" [class.is-open]="isOpen()" (click)="toggleOpen()">
     <div class="trigger-copy">
       <span class="trigger-label" *ngIf="helperLabel">{{ helperLabel }}</span>

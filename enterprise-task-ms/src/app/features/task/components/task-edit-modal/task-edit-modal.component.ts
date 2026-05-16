@@ -27,7 +27,7 @@ export class TaskEditModalComponent {
   private _task!: Task;
 
   @Input({ required: true }) formOptions!: TaskFormOptions;
-  @Input() parentTaskOptions: Array<{ value: number; label: string }> = [];
+  @Input() projectOptions: Array<{ value: number; label: string }> = [];
   @Input() canManageClosedTasks = false;
 
   @Input({ required: true }) set task(value: Task) {
@@ -94,11 +94,11 @@ export class TaskEditModalComponent {
     }))
   ]);
 
-  readonly parentOptions = computed<CustomSelectOption[]>(() => [
-    { value: null, label: 'Không có công việc cha' },
-    ...this.parentTaskOptions.map((task) => ({
-      value: task.value,
-      label: task.label
+  readonly projectSelectOptions = computed<CustomSelectOption[]>(() => [
+    { value: null, label: 'Chưa chọn' },
+    ...this.projectOptions.map((project) => ({
+      value: project.value,
+      label: project.label
     }))
   ]);
 
@@ -184,7 +184,7 @@ export class TaskEditModalComponent {
   }
 
   get priorityLabel() {
-    return this.priorities.find((priority) => priority.value === this.task.priorityId)?.label ?? 'Chưa gán';
+    return this.priorities.find((priority) => priority.value === this.task.priorityId)?.label ?? 'Chưa chọn';
   }
 
   get statusLabel() {
@@ -192,7 +192,7 @@ export class TaskEditModalComponent {
   }
 
   get assigneeLabel() {
-    return this.resolveUserName(this.task.assigneeId) ?? 'Chưa phân công';
+    return this.resolveUserName(this.task.assigneeId) ?? 'Chưa chọn';
   }
 
   addAttachment() {

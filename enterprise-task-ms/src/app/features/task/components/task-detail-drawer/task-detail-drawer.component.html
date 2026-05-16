@@ -23,8 +23,8 @@
           <strong>{{ task.progress }}%</strong>
         </div>
 
-        <div class="progress-bar">
-          <div class="progress-fill" [style.width.%]="task.progress"></div>
+        <div class="ds-progress">
+          <div class="ds-progress-fill" [style.width.%]="task.progress"></div>
         </div>
       </div>
 
@@ -118,10 +118,13 @@
             <strong>Chuyển xử lý</strong>
             <span>Chọn người phụ trách mới cho công việc.</span>
           </div>
-          <select class="action-input" [ngModel]="transferAssigneeId()" (ngModelChange)="transferAssigneeId.set($any($event))">
-            <option [ngValue]="null">Chọn người xử lý</option>
-            <option *ngFor="let user of assigneeOptions()" [ngValue]="user.id">{{ user.label }}</option>
-          </select>
+          <app-custom-select
+            [options]="assigneeSelectOptions()"
+            [value]="transferAssigneeId()"
+            size="compact"
+            placeholder="Chọn người xử lý"
+            searchPlaceholder="Tìm người xử lý..."
+            (valueChange)="transferAssigneeId.set($any($event))"></app-custom-select>
           <textarea
             class="action-input"
             [ngModel]="transferReason()"
@@ -185,7 +188,7 @@
         </div>
 
         <div class="fact-item">
-          <span>Checklist</span>
+          <span>Nhiệm vụ con</span>
           <strong>{{ progress() }}% hoàn tất</strong>
         </div>
 
@@ -236,47 +239,106 @@
     <section class="detail-section surface-card-muted">
       <div class="section-head">
         <div>
-          <h3>Checklist thực hiện</h3>
-          <p>Giữ checklist gọn, rõ và cập nhật xong đến đâu đánh dấu đến đó.</p>
+          <h3>Nhiệm vụ con</h3>
+          <p>Chia công việc lớn thành các đầu việc nhỏ, gán người xử lý và theo dõi tiến độ riêng.</p>
         </div>
 
         <span class="ui-pill ui-pill-info">{{ progress() }}%</span>
       </div>
 
+      <div class="subtask-hint" *ngIf="parentCompletionSuggested()">
+        Tất cả nhiệm vụ con đã hoàn thành. Hệ thống gợi ý đánh dấu công việc hiện tại hoàn thành.
+      </div>
+
       <div class="subtask-list">
         <div class="subtask-item" *ngFor="let sub of subtasks()">
-          <input type="checkbox" [checked]="sub.done" (change)="toggleSubtask(sub)" />
+          <div class="subtask-main">
+            <input type="checkbox" [checked]="sub.done" (change)="toggleSubtask(sub)" />
 
-          <span
-            *ngIf="editingSubtaskId() !== sub.id"
-            class="subtask-text"
-            [class.done]="sub.done"
-            (dblclick)="startEdit(sub)">
-            {{ sub.title }}
-          </span>
+            <span
+              *ngIf="editingSubtaskId() !== sub.id"
+              class="subtask-text"
+              [class.done]="sub.done"
+              (dblclick)="startEdit(sub)">
+              {{ sub.title }}
+            </span>
 
-          <input
-            *ngIf="editingSubtaskId() === sub.id"
-            class="subtask-edit"
-            [value]="editingTitle()"
-            (input)="editingTitle.set($any($event.target).value)"
-            (blur)="saveEdit(sub)"
-            (keyup.enter)="saveEdit(sub)"
-            (keyup.escape)="cancelEdit()" />
+            <input
+              *ngIf="editingSubtaskId() === sub.id"
+              class="subtask-edit"
+              [value]="editingTitle()"
+              (input)="editingTitle.set($any($event.target).value)"
+              (blur)="saveEdit(sub)"
+              (keyup.enter)="saveEdit(sub)"
+              (keyup.escape)="cancelEdit()" />
 
-          <button class="subtask-delete" type="button" (click)="deleteSubtask(sub.id)">Xóa</button>
+            <button class="subtask-delete" type="button" (click)="deleteSubtask(sub.id)">Xóa</button>
+          </div>
+
+          <div class="subtask-meta-grid">
+            <label>
+              <span>Người xử lý</span>
+              <app-custom-select
+                [options]="assigneeSelectOptions()"
+                [value]="sub.assigneeId ?? null"
+                size="compact"
+                placeholder="Chưa chọn"
+                searchPlaceholder="Tìm người xử lý..."
+                (valueChange)="updateSubtaskAssignee(sub, $any($event))"></app-custom-select>
+            </label>
+
+            <label>
+              <span>Deadline</span>
+              <input
+                class="subtask-control"
+                type="date"
+                [ngModel]="toInputDate(sub.dueDate)"
+                (ngModelChange)="updateSubtaskDueDate(sub, $event)" />
+            </label>
+
+            <label>
+              <span>Tiến độ</span>
+              <input
+                class="subtask-control"
+                type="number"
+                min="0"
+                max="100"
+                [ngModel]="sub.progress"
+                (change)="updateSubtaskProgress(sub, $any($event.target).value)" />
+            </label>
+          </div>
         </div>
       </div>
 
       <div class="add-subtask">
         <input
-          class="add-input"
-          placeholder="Thêm checklist mới..."
+          class="add-input add-title"
+          placeholder="Thêm nhiệm vụ con..."
           [ngModel]="newSubtaskTitle()"
           (ngModelChange)="newSubtaskTitle.set($event)"
           (keyup.enter)="addSubtask()" />
 
-        <button class="ui-button-primary" type="button" (click)="addSubtask()">Thêm</button>
+        <div class="add-subtask-fields">
+          <app-custom-select
+            [options]="assigneeSelectOptions()"
+            [value]="newSubtaskAssigneeId()"
+            size="compact"
+            placeholder="Chưa chọn"
+            searchPlaceholder="Tìm người xử lý..."
+            (valueChange)="newSubtaskAssigneeId.set($any($event))"></app-custom-select>
+
+          <input class="add-input" type="date" [ngModel]="newSubtaskDueDate()" (ngModelChange)="newSubtaskDueDate.set($event)" />
+
+          <input
+            class="add-input progress-input"
+            type="number"
+            min="0"
+            max="100"
+            [ngModel]="newSubtaskProgress()"
+            (ngModelChange)="newSubtaskProgress.set($any($event))" />
+
+          <button class="ui-button-primary" type="button" (click)="addSubtask()">Thêm</button>
+        </div>
       </div>
     </section>
 

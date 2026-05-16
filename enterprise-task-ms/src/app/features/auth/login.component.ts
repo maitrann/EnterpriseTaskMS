@@ -47,7 +47,7 @@ export class LoginComponent implements OnInit {
     const result = this.authService.login(email ?? '', password ?? '');
 
     if (!result.success) {
-      this.errorMessage.set(result.message ?? 'Dang nhap that bai.');
+      this.errorMessage.set(result.message ?? 'Đăng nhập thất bại.');
     }
   }
 }

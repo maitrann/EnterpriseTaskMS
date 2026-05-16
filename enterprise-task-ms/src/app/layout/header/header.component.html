@@ -16,6 +16,16 @@
       </label>
 
       <div class="header-actions">
+        <button
+          class="action-btn theme-btn"
+          type="button"
+          [attr.aria-label]="themeMode() === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'"
+          (click)="toggleTheme()">
+          <span class="theme-icon" aria-hidden="true">
+            {{ themeMode() === 'dark' ? '☀' : '☾' }}
+          </span>
+        </button>
+
         <button class="action-btn" type="button" aria-label="Thông báo">
           <span class="action-icon">!</span>
           <span class="action-badge">3</span>
