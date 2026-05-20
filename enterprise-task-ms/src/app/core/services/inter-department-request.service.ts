@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Inject, Injectable, computed, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
+import { API_BASE_URL } from '../constants/app.constants';
 import { AUTH_DATA_SOURCE, AuthDataSource } from '../data-sources/auth.datasource';
 import {
   INTER_DEPARTMENT_REQUEST_DATA_SOURCE,
@@ -60,13 +63,27 @@ export class InterDepartmentRequestService {
     @Inject(AUTH_DATA_SOURCE)
     private readonly authDataSource: AuthDataSource,
     @Inject(INTER_DEPARTMENT_REQUEST_DATA_SOURCE)
-    private readonly requestDataSource: InterDepartmentRequestDataSource
+    private readonly requestDataSource: InterDepartmentRequestDataSource,
+    private readonly http: HttpClient
   ) {
     this.departmentOptions = this.requestDataSource.getDepartmentOptions();
     this.ownerOptions = this.requestDataSource.getOwnerOptions();
     this.slaPolicies = this.requestDataSource.getSlaPolicies();
     this.mockUsers = this.authDataSource.getMockUsers();
     this.requests.set(this.requestDataSource.getRequests());
+    void this.loadFromApi();
+  }
+
+  async loadFromApi() {
+    try {
+      this.requests.set(
+        await firstValueFrom(
+          this.http.get<InterDepartmentRequest[]>(`${API_BASE_URL}/inter-department-requests`)
+        )
+      );
+    } catch {
+      // Keep mock requests while the API is offline.
+    }
   }
 
   createRequest(payload: CreateInterDepartmentRequest): RequestActionResult {
@@ -120,6 +137,23 @@ export class InterDepartmentRequestService {
     };
 
     this.requests.update((requests) => [newRequest, ...requests]);
+    void firstValueFrom(
+      this.http.post(`${API_BASE_URL}/inter-department-requests`, {
+        type: payload.type,
+        title: payload.title,
+        description: payload.description,
+        requesterDepartmentId: Number(payload.requesterDepartmentId),
+        requesterUserId: payload.requesterUserId,
+        targetDepartmentId: Number(payload.targetDepartmentId),
+        priority: payload.priority,
+        dueDate: payload.dueDate,
+        formValues: payload.formValues,
+        note: payload.note
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
+
     return { success: true };
   }
 
@@ -164,6 +198,10 @@ export class InterDepartmentRequestService {
           : item
       )
     );
+
+    void firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/acknowledge`, {}))
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
 
     return { success: true };
   }
@@ -216,6 +254,14 @@ export class InterDepartmentRequestService {
       )
     );
 
+    void firstValueFrom(
+      this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/assign-owner`, {
+        ownerId: Number(ownerId)
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
+
     return { success: true };
   }
 
@@ -255,6 +301,12 @@ export class InterDepartmentRequestService {
           : item
       )
     );
+
+    void firstValueFrom(
+      this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/status`, { status })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
 
     return { success: true };
   }
@@ -301,6 +353,10 @@ export class InterDepartmentRequestService {
       )
     );
 
+    void firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/close`, {}))
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
+
     return { success: true };
   }
 
@@ -345,6 +401,18 @@ export class InterDepartmentRequestService {
         };
       })
     );
+
+    void firstValueFrom(
+      this.http.post(`${API_BASE_URL}/inter-department-requests/${payload.requestId}/messages`, {
+        authorUserId: payload.actor.id,
+        authorName: payload.actor.fullName ?? payload.actor.username,
+        authorRole: isRequester ? 'requester' : 'processor',
+        authorDepartment: payload.actor.departmentName ?? '',
+        body: payload.body.trim()
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
 
     return { success: true };
   }

@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideState, provideStore } from '@ngrx/store';
@@ -11,13 +11,14 @@ import { MockDepartmentDataSource } from './core/data-sources/mock-department.da
 import { MockInterDepartmentRequestDataSource } from './core/data-sources/mock-inter-department-request.datasource';
 import { MockTaskDataSource } from './core/data-sources/mock-task.datasource';
 import { TASK_DATA_SOURCE } from './core/data-sources/task.datasource';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { routes } from './app.routes';
 import { taskReducer } from './features/task/store/task.reducer';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authInterceptor])),
     provideStore(),
     provideState('tasks', taskReducer),
     { provide: AUTH_DATA_SOURCE, useClass: MockAuthDataSource },

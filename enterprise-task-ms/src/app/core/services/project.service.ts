@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
+import { API_BASE_URL } from '../constants/app.constants';
 import { Project } from '../models/project.model';
 import { Task } from '../models/task.model';
 import { TaskService } from './task.service';
@@ -82,7 +85,29 @@ export class ProjectService {
     this.projects().map((project) => this.createOverview(project, this.taskService.tasks()))
   );
 
-  constructor(private readonly taskService: TaskService) {}
+  constructor(
+    private readonly taskService: TaskService,
+    private readonly http: HttpClient
+  ) {
+    void this.loadFromApi();
+  }
+
+  async loadFromApi() {
+    try {
+      const projects = await firstValueFrom(this.http.get<Project[]>(`${API_BASE_URL}/projects`));
+      this.projects.set(
+        projects.map((project) => ({
+          ...project,
+          startDate: project.startDate ? new Date(project.startDate) : undefined,
+          endDate: project.endDate ? new Date(project.endDate) : undefined,
+          createdAt: new Date(project.createdAt),
+          updatedAt: project.updatedAt ? new Date(project.updatedAt) : undefined
+        }))
+      );
+    } catch {
+      // Keep mock projects while the API is offline.
+    }
+  }
 
   getProjectOptions() {
     return this.projects().map((project) => ({

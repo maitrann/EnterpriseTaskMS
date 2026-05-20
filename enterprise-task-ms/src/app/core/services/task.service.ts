@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Inject, Injectable, computed, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
+import { API_BASE_URL } from '../constants/app.constants';
 import {
   TASK_STATUS_IDS,
   TASK_TERMINAL_STATUS_IDS,
@@ -30,11 +33,29 @@ export class TaskService {
 
   constructor(
     @Inject(TASK_DATA_SOURCE) private readonly taskDataSource: TaskDataSource,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
+    private readonly http: HttpClient
   ) {
     this.tasks.set(this.taskDataSource.getTasks());
     this.activities.set(this.taskDataSource.getTaskActivities());
     this.formOptions.set(this.taskDataSource.getTaskFormOptions());
+    void this.loadFromApi();
+  }
+
+  async loadFromApi() {
+    try {
+      const [tasks, activities, formOptions] = await Promise.all([
+        firstValueFrom(this.http.get<Task[]>(`${API_BASE_URL}/tasks`)),
+        firstValueFrom(this.http.get<TaskActivity[]>(`${API_BASE_URL}/tasks/activities`)),
+        firstValueFrom(this.http.get<TaskFormOptions>(`${API_BASE_URL}/tasks/form-options`))
+      ]);
+
+      this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
+      this.activities.set(activities.map((activity) => ({ ...activity, createdAt: new Date(activity.createdAt) })));
+      this.formOptions.set(formOptions);
+    } catch {
+      // Keep the seeded mock state visible when the API is not running yet.
+    }
   }
 
   getAll() {
@@ -113,6 +134,30 @@ export class TaskService {
       ...activities
     ]);
 
+    void firstValueFrom(
+      this.http.post<{ id: number }>(`${API_BASE_URL}/tasks`, {
+        title: input.title,
+        description: input.description,
+        taskType: input.taskType,
+        projectId: input.projectId,
+        parentTaskId: input.parentTaskId,
+        departmentId: input.departmentId,
+        assigneeId: input.assigneeId,
+        priorityId: input.priorityId,
+        urgencyLevel: input.urgencyLevel,
+        securityLevel: input.securityLevel,
+        startDate: this.toApiDate(input.startDate),
+        dueDate: this.toApiDate(input.dueDate),
+        estimatedHours: input.estimatedHours,
+        source: input.source,
+        collaboratorIds: input.collaboratorIds,
+        watcherIds: input.watcherIds,
+        tags: input.tags
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
+
     return nextTask;
   }
 
@@ -130,7 +175,7 @@ export class TaskService {
       };
     }
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -141,6 +186,7 @@ export class TaskService {
       'Chờ tiếp nhận',
       'Đang xử lý'
     );
+    return result;
   }
 
   rejectAcceptance(taskId: number, reason: string) {
@@ -158,7 +204,7 @@ export class TaskService {
     }
 
     const note = reason.trim() || 'Từ chối tiếp nhận công việc.';
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -169,6 +215,7 @@ export class TaskService {
       'Chờ tiếp nhận',
       'Tạm dừng chờ điều phối lại'
     );
+    return result;
   }
 
   requestExtension(taskId: number, dueDate: Date, reason: string) {
@@ -197,7 +244,7 @@ export class TaskService {
       requestedAt: new Date()
     };
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -208,6 +255,20 @@ export class TaskService {
       task.dueDate ? this.formatDate(task.dueDate) : 'Chưa có hạn',
       this.formatDate(dueDate)
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests`, {
+          requestedDueDate: this.toApiDate(dueDate),
+          reason: note,
+          requestedByUserId: this.authService.user()?.id ?? 1
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   approveExtensionRequest(taskId: number, requestId: number, note: string) {
@@ -234,7 +295,7 @@ export class TaskService {
     }
 
     const reviewNote = note.trim();
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -259,6 +320,20 @@ export class TaskService {
       task.dueDate ? this.formatDate(task.dueDate) : 'Chưa có hạn',
       this.formatDate(extensionRequest.requestedDueDate)
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, {
+          approved: true,
+          reviewedByUserId: this.authService.user()?.id ?? 1,
+          reviewNote
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   rejectExtensionRequest(taskId: number, requestId: number, note: string) {
@@ -285,7 +360,7 @@ export class TaskService {
     }
 
     const reviewNote = note.trim() || 'Không duyệt yêu cầu gia hạn.';
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -306,6 +381,20 @@ export class TaskService {
       this.formatDate(extensionRequest.requestedDueDate),
       reviewNote
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, {
+          approved: false,
+          reviewedByUserId: this.authService.user()?.id ?? 1,
+          reviewNote
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   transferAssignee(taskId: number, assigneeId: number, reason: string) {
@@ -323,7 +412,7 @@ export class TaskService {
     }
 
     const note = reason.trim();
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -335,6 +424,16 @@ export class TaskService {
       task.assigneeId ? `User ${task.assigneeId}` : 'Chưa chọn',
       `User ${assigneeId}`
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/assignee`, { assigneeId, reason: note })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   createSubtask(taskId: number, input: SubTaskInput) {
@@ -374,7 +473,7 @@ export class TaskService {
       order: subtasks.length + 1
     };
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) =>
         this.withSubtaskRollup({
@@ -385,6 +484,21 @@ export class TaskService {
       undefined,
       title
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/subtasks`, {
+          title,
+          assigneeId: input.assigneeId,
+          dueDate: this.toApiDate(input.dueDate),
+          progress
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   updateSubtask(taskId: number, subtaskId: number, changes: Partial<SubTaskInput>) {
@@ -420,7 +534,7 @@ export class TaskService {
     const progress = this.normalizeProgress(changes.progress ?? subtask.progress);
     const now = Date.now();
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) =>
         this.withSubtaskRollup({
@@ -444,6 +558,22 @@ export class TaskService {
       subtask.title,
       title
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.put(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+          title,
+          assigneeId: changes.assigneeId === undefined ? subtask.assigneeId : changes.assigneeId,
+          dueDate: this.toApiDate(dueDate),
+          progress,
+          done: progress === 100
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   toggleSubtaskDone(taskId: number, subtaskId: number) {
@@ -465,7 +595,7 @@ export class TaskService {
     const nextDone = !subtask.done;
     const now = Date.now();
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) =>
         this.withSubtaskRollup({
@@ -486,6 +616,19 @@ export class TaskService {
       subtask.done ? 'Done' : 'Open',
       nextDone ? 'Done' : 'Open'
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.put(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+          progress: nextDone ? 100 : 0,
+          done: nextDone
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   deleteSubtask(taskId: number, subtaskId: number) {
@@ -504,7 +647,7 @@ export class TaskService {
       };
     }
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) =>
         this.withSubtaskRollup({
@@ -517,6 +660,14 @@ export class TaskService {
       subtask.title,
       undefined
     );
+
+    if (result.success) {
+      void firstValueFrom(this.http.delete(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`))
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   completeTask(taskId: number, note: string) {
@@ -526,7 +677,7 @@ export class TaskService {
       return this.notFoundResult();
     }
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -538,6 +689,7 @@ export class TaskService {
       getTaskStatusLabel(task.statusId),
       getTaskStatusLabel(TASK_STATUS_IDS.HOAN_THANH)
     );
+    return result;
   }
 
   confirmCompletion(taskId: number, note: string) {
@@ -561,7 +713,7 @@ export class TaskService {
       };
     }
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -573,6 +725,7 @@ export class TaskService {
       getTaskStatusLabel(task.statusId),
       getTaskStatusLabel(TASK_STATUS_IDS.DONG)
     );
+    return result;
   }
 
   cancelTask(taskId: number, reason: string) {
@@ -583,7 +736,7 @@ export class TaskService {
     }
 
     const note = reason.trim() || 'Hủy công việc.';
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -594,6 +747,8 @@ export class TaskService {
       getTaskStatusLabel(task.statusId),
       note
     );
+
+    return result;
   }
 
   addTaskFeedback(taskId: number, body: string) {
@@ -611,7 +766,7 @@ export class TaskService {
       };
     }
 
-    return this.applyTaskAction(
+    const result = this.applyTaskAction(
       task,
       (current) => ({
         ...current,
@@ -621,6 +776,19 @@ export class TaskService {
       undefined,
       note
     );
+
+    if (result.success) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${taskId}/comments`, {
+          userId: this.authService.user()?.id ?? 1,
+          content: note
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
+
+    return result;
   }
 
   duplicateTask(taskId: number) {
@@ -689,6 +857,33 @@ export class TaskService {
 
     this.recordTaskUpdateActivities(currentTask, updatedTask);
 
+    void firstValueFrom(
+      this.http.put(`${API_BASE_URL}/tasks/${updatedTask.id}`, {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        taskType: updatedTask.taskType,
+        projectId: updatedTask.projectId,
+        parentTaskId: updatedTask.parentTaskId,
+        departmentId: updatedTask.departmentId,
+        assigneeId: updatedTask.assigneeId,
+        statusId: updatedTask.statusId,
+        priorityId: updatedTask.priorityId,
+        startDate: this.toApiDate(updatedTask.startDate),
+        dueDate: this.toApiDate(updatedTask.dueDate),
+        progress: updatedTask.progress,
+        estimatedHours: updatedTask.estimatedHours,
+        actualHours: updatedTask.actualHours,
+        source: updatedTask.source,
+        urgencyLevel: updatedTask.urgencyLevel,
+        securityLevel: updatedTask.securityLevel,
+        collaboratorIds: updatedTask.collaboratorIds ?? [],
+        watcherIds: updatedTask.watcherIds ?? [],
+        tags: updatedTask.tags ?? []
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
+
     return {
       success: true
     };
@@ -728,6 +923,17 @@ export class TaskService {
 
     this.tasks.update((tasks) => tasks.map((item) => (item.id === task.id ? updatedTask : item)));
     this.recordActivity(task.id, actionType, oldValue, newValue);
+
+    if (task.statusId !== updatedTask.statusId && updatedTask.statusId) {
+      void firstValueFrom(
+        this.http.post(`${API_BASE_URL}/tasks/${task.id}/status`, {
+          statusId: updatedTask.statusId,
+          note: newValue
+        })
+      )
+        .then(() => this.loadFromApi())
+        .catch(() => undefined);
+    }
 
     return {
       success: true,
@@ -778,6 +984,16 @@ export class TaskService {
     this.tasks.update((tasks) => [clonedTask, ...tasks]);
     this.recordActivity(task.id, options.actionType, task.code, clonedTask.code);
     this.recordActivity(clonedTask.id, 'CREATE_TASK', undefined, clonedTask.title);
+
+    void firstValueFrom(
+      this.http.post(`${API_BASE_URL}/tasks/${task.id}/duplicate`, {
+        title: options.title,
+        resetPeople: !!options.resetPeople,
+        resetAttachments: !!options.resetAttachments
+      })
+    )
+      .then(() => this.loadFromApi())
+      .catch(() => undefined);
 
     return {
       success: true,
@@ -1023,5 +1239,33 @@ export class TaskService {
 
   private getListSignature(value?: string[]) {
     return [...(value ?? [])].sort().join('|');
+  }
+
+  private normalizeTask(task: Task): Task {
+    return {
+      ...task,
+      startDate: task.startDate ? new Date(task.startDate) : undefined,
+      dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+      createdAt: new Date(task.createdAt),
+      updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
+      extensionRequests: (task.extensionRequests ?? []).map((request) => ({
+        ...request,
+        requestedDueDate: new Date(request.requestedDueDate),
+        requestedAt: new Date(request.requestedAt),
+        reviewedAt: request.reviewedAt ? new Date(request.reviewedAt) : undefined
+      })),
+      subtasks: this.cloneSubtasks(task.subtasks)
+    };
+  }
+
+  private toApiDate(value?: Date) {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${date.getFullYear()}-${month}-${day}`;
   }
 }

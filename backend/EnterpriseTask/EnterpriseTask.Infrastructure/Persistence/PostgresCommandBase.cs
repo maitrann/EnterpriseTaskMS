@@ -25,7 +25,18 @@ public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
             AddParameters(command, parameters);
 
             var result = await command.ExecuteScalarAsync(cancellationToken);
-            return result is null or DBNull ? default : (T)Convert.ChangeType(result, typeof(T));
+            if (result is null or DBNull)
+            {
+                return default;
+            }
+
+            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+            if (targetType == typeof(Guid) && result is Guid guid)
+            {
+                return (T)(object)guid;
+            }
+
+            return (T)Convert.ChangeType(result, targetType);
         }
         finally
         {

@@ -1,8 +1,10 @@
+using EnterpriseTask.Application.Common;
+
 namespace EnterpriseTask.Application.InterDepartmentRequests;
 
 public interface IInterDepartmentRequestQueries
 {
-    Task<IReadOnlyList<InterDepartmentRequestDto>> GetRequestsAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<InterDepartmentRequestDto>> GetRequestsAsync(UserScope scope, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<RequestDepartmentRefDto>> GetDepartmentOptionsAsync(CancellationToken cancellationToken);
 

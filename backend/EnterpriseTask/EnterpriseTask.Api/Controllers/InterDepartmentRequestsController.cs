@@ -1,9 +1,11 @@
 using EnterpriseTask.Application.InterDepartmentRequests;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EnterpriseTask.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/inter-department-requests")]
 public sealed class InterDepartmentRequestsController(
     IInterDepartmentRequestQueries requestQueries,
@@ -12,7 +14,7 @@ public sealed class InterDepartmentRequestsController(
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InterDepartmentRequestDto>>> Get(CancellationToken cancellationToken)
     {
-        return Ok(await requestQueries.GetRequestsAsync(cancellationToken));
+        return Ok(await requestQueries.GetRequestsAsync(this.GetUserScope(), cancellationToken));
     }
 
     [HttpGet("department-options")]

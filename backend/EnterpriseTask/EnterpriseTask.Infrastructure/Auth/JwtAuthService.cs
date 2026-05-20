@@ -16,9 +16,14 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var matches = await QueryAsync(
             """
-            SELECT id, username, email, password_hash, full_name, role_label, avatar_url, department_id, is_active, created_at
-            FROM users
-            WHERE LOWER(email) = LOWER(@email) OR LOWER(username) = LOWER(@email)
+            SELECT u.id, u.username, u.email, u.password_hash, u.full_name, u.role_label, u.avatar_url,
+                   u.department_id, u.is_active, u.created_at,
+                   COALESCE(string_agg(DISTINCT r.code, ','), '') AS role_codes
+            FROM users u
+            LEFT JOIN user_roles ur ON ur.user_id = u.id
+            LEFT JOIN roles r ON r.id = ur.role_id
+            WHERE LOWER(u.email) = LOWER(@email) OR LOWER(u.username) = LOWER(@email)
+            GROUP BY u.id
             LIMIT 1;
             """,
             reader => new UserLoginRow(
@@ -31,7 +36,8 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
                 reader.GetNullableString("avatar_url"),
                 reader.GetNullableInt64("department_id"),
                 reader.GetBooleanValue("is_active"),
-                reader.GetDateTimeOffsetValue("created_at")),
+                reader.GetDateTimeOffsetValue("created_at"),
+                reader.GetStringValue("role_codes")),
             [("@email", normalizedEmail)],
             cancellationToken);
 
@@ -50,9 +56,14 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
     {
         var users = await QueryAsync(
             """
-            SELECT id, username, email, full_name, role_label, avatar_url, department_id, is_active, created_at
-            FROM users
-            WHERE id = @id
+            SELECT u.id, u.username, u.email, u.full_name,
+                   COALESCE(string_agg(DISTINCT r.code, ','), u.role_label, '') AS role_label,
+                   u.avatar_url, u.department_id, u.is_active, u.created_at
+            FROM users u
+            LEFT JOIN user_roles ur ON ur.user_id = u.id
+            LEFT JOIN roles r ON r.id = ur.role_id
+            WHERE u.id = @id
+            GROUP BY u.id
             LIMIT 1;
             """,
             reader => new AuthUserDto(
@@ -88,12 +99,13 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username)
+            new(ClaimTypes.Name, user.Username),
+            new("department_id", user.DepartmentId?.ToString() ?? string.Empty)
         };
 
-        if (!string.IsNullOrWhiteSpace(user.Role))
+        foreach (var roleCode in user.RoleCodes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            claims.Add(new Claim(ClaimTypes.Role, user.Role));
+            claims.Add(new Claim(ClaimTypes.Role, roleCode));
         }
 
         var token = new JwtSecurityToken(
@@ -118,7 +130,7 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             user.Username,
             user.Email,
             user.FullName,
-            user.Role,
+            string.IsNullOrWhiteSpace(user.RoleCodes) ? user.Role : user.RoleCodes,
             user.AvatarUrl,
             user.DepartmentId,
             user.IsActive,
@@ -135,5 +147,6 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         string? AvatarUrl,
         long? DepartmentId,
         bool IsActive,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string RoleCodes);
 }

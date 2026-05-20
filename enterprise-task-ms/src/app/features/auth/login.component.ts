@@ -18,6 +18,7 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
 
   readonly errorMessage = signal('');
+  readonly isSubmitting = signal(false);
 
   readonly form = this.fb.group({
     email: [this.authService.mockCredentials.email, [Validators.required, Validators.email]],
@@ -37,14 +38,16 @@ export class LoginComponent implements OnInit {
     this.errorMessage.set('');
   }
 
-  onSubmit() {
+  async onSubmit() {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
 
     const { email, password } = this.form.getRawValue();
-    const result = this.authService.login(email ?? '', password ?? '');
+    this.isSubmitting.set(true);
+    const result = await this.authService.login(email ?? '', password ?? '');
+    this.isSubmitting.set(false);
 
     if (!result.success) {
       this.errorMessage.set(result.message ?? 'Đăng nhập thất bại.');

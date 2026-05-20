@@ -1,5 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Inject, Injectable, computed, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
+import { API_BASE_URL } from '../constants/app.constants';
 import {
   DEPARTMENT_DATA_SOURCE,
   DepartmentDataSource
@@ -29,8 +32,20 @@ export class DepartmentService {
   });
 
   constructor(
-    @Inject(DEPARTMENT_DATA_SOURCE) private readonly departmentDataSource: DepartmentDataSource
+    @Inject(DEPARTMENT_DATA_SOURCE) private readonly departmentDataSource: DepartmentDataSource,
+    private readonly http: HttpClient
   ) {
     this.departmentCards.set(this.departmentDataSource.getDepartmentCards());
+    void this.loadFromApi();
+  }
+
+  async loadFromApi() {
+    try {
+      this.departmentCards.set(
+        await firstValueFrom(this.http.get<DepartmentCard[]>(`${API_BASE_URL}/departments/cards`))
+      );
+    } catch {
+      // Keep mock cards while the API is offline.
+    }
   }
 }

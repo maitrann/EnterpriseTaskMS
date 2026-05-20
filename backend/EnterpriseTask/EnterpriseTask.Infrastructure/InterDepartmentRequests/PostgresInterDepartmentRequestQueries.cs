@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.InterDepartmentRequests;
 using EnterpriseTask.Infrastructure.Persistence;
 
@@ -7,7 +8,7 @@ namespace EnterpriseTask.Infrastructure.InterDepartmentRequests;
 public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext dbContext)
     : PostgresQueryBase(dbContext), IInterDepartmentRequestQueries
 {
-    public async Task<IReadOnlyList<InterDepartmentRequestDto>> GetRequestsAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<InterDepartmentRequestDto>> GetRequestsAsync(UserScope scope, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT
@@ -39,6 +40,11 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
             LEFT JOIN users ru ON ru.id = r.requester_user_id
             LEFT JOIN users ou ON ou.id = r.owner_id
             LEFT JOIN inter_request_sla_policies p ON p.key = r.sla_policy_key
+            WHERE @isAdmin
+               OR r.requester_user_id = @userId
+               OR r.owner_id = @userId
+               OR r.requester_department_id = @departmentId
+               OR r.target_department_id = @departmentId
             ORDER BY r.created_at DESC;
             """;
 
@@ -81,9 +87,18 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
                 reader.GetNullableString("latest_message"),
                 reader.GetNullableString("note"),
                 []);
-        }, cancellationToken)).ToList();
+        },
+        [
+            ("@userId", scope.UserId),
+            ("@departmentId", scope.DepartmentId),
+            ("@isAdmin", scope.IsAdmin)
+        ],
+        cancellationToken)).ToList();
 
-        var messages = await GetMessagesAsync(cancellationToken);
+        var visibleIds = requests.Select(request => request.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var messages = (await GetMessagesAsync(cancellationToken))
+            .Where(message => visibleIds.Contains(message.RequestId))
+            .ToList();
 
         return requests
             .Select(request => request with

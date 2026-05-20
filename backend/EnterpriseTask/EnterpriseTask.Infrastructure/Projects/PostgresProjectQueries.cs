@@ -1,3 +1,4 @@
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Projects;
 using EnterpriseTask.Infrastructure.Persistence;
 
@@ -5,12 +6,13 @@ namespace EnterpriseTask.Infrastructure.Projects;
 
 public sealed class PostgresProjectQueries(ApplicationDbContext dbContext) : PostgresQueryBase(dbContext), IProjectQueries
 {
-    public Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<ProjectDto>> GetProjectsAsync(UserScope scope, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT id, code, name, description, department_id, owner_id, start_date, end_date,
                    status::text AS status, created_by, created_at, updated_at
             FROM projects
+            WHERE @isAdmin OR department_id = @departmentId OR owner_id = @userId OR created_by = @userId
             ORDER BY created_at DESC, id DESC;
             """;
 
@@ -26,6 +28,12 @@ public sealed class PostgresProjectQueries(ApplicationDbContext dbContext) : Pos
             reader.GetNullableString("status"),
             reader.GetNullableInt64("created_by"),
             reader.GetDateTimeOffsetValue("created_at"),
-            reader.GetNullableDateTimeOffset("updated_at")), cancellationToken);
+            reader.GetNullableDateTimeOffset("updated_at")),
+            [
+                ("@userId", scope.UserId),
+                ("@departmentId", scope.DepartmentId),
+                ("@isAdmin", scope.IsAdmin)
+            ],
+            cancellationToken);
     }
 }

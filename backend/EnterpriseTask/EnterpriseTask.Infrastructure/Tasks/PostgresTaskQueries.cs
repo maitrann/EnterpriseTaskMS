@@ -6,7 +6,7 @@ namespace EnterpriseTask.Infrastructure.Tasks;
 
 public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : PostgresQueryBase(dbContext), ITaskQueries
 {
-    public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(UserScope scope, CancellationToken cancellationToken)
     {
         const string tasksSql = """
             SELECT
@@ -21,6 +21,12 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
               COALESCE((SELECT array_agg(tags.name ORDER BY tags.name) FROM task_tags JOIN tags ON tags.id = task_tags.tag_id WHERE task_tags.task_id = t.id), ARRAY[]::text[]) AS tags,
               COALESCE((SELECT array_agg(content ORDER BY created_at DESC) FROM task_comments WHERE task_id = t.id), ARRAY[]::text[]) AS processing_notes
             FROM tasks t
+            WHERE @isAdmin
+               OR (@isManager AND t.department_id = @departmentId)
+               OR t.reporter_id = @userId
+               OR t.assignee_id = @userId
+               OR EXISTS (SELECT 1 FROM task_collaborators tc WHERE tc.task_id = t.id AND tc.user_id = @userId)
+               OR EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = @userId)
             ORDER BY t.created_at DESC, t.id DESC;
             """;
 
@@ -55,7 +61,9 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableDecimal("estimated_hours"),
             reader.GetNullableDecimal("actual_hours"),
             reader.GetDateTimeOffsetValue("created_at"),
-            reader.GetNullableDateTimeOffset("updated_at")), cancellationToken)).ToList();
+            reader.GetNullableDateTimeOffset("updated_at")),
+            ScopeParameters(scope),
+            cancellationToken)).ToList();
 
         var subtasks = await GetSubtasksAsync(cancellationToken);
         var extensions = await GetExtensionRequestsAsync(cancellationToken);
@@ -69,12 +77,19 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             .ToList();
     }
 
-    public Task<IReadOnlyList<TaskActivityDto>> GetActivitiesAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<TaskActivityDto>> GetActivitiesAsync(UserScope scope, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT id, task_id, user_id, action_type, old_value, new_value, created_at
-            FROM task_activities
-            ORDER BY created_at DESC, id DESC;
+            SELECT a.id, a.task_id, a.user_id, a.action_type, a.old_value, a.new_value, a.created_at
+            FROM task_activities a
+            JOIN tasks t ON t.id = a.task_id
+            WHERE @isAdmin
+               OR (@isManager AND t.department_id = @departmentId)
+               OR t.reporter_id = @userId
+               OR t.assignee_id = @userId
+               OR EXISTS (SELECT 1 FROM task_collaborators tc WHERE tc.task_id = t.id AND tc.user_id = @userId)
+               OR EXISTS (SELECT 1 FROM task_watchers tw WHERE tw.task_id = t.id AND tw.user_id = @userId)
+            ORDER BY a.created_at DESC, a.id DESC;
             """;
 
         return QueryAsync(sql, reader => new TaskActivityDto(
@@ -84,14 +99,20 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableString("action_type"),
             reader.GetNullableString("old_value"),
             reader.GetNullableString("new_value"),
-            reader.GetDateTimeOffsetValue("created_at")), cancellationToken);
+            reader.GetDateTimeOffsetValue("created_at")), ScopeParameters(scope), cancellationToken);
     }
 
-    public async Task<TaskFormOptionsDto> GetFormOptionsAsync(CancellationToken cancellationToken)
+    public async Task<TaskFormOptionsDto> GetFormOptionsAsync(UserScope scope, CancellationToken cancellationToken)
     {
         var departments = await QueryAsync(
-            "SELECT id, name FROM departments ORDER BY name;",
+            """
+            SELECT id, name
+            FROM departments
+            WHERE @isAdmin OR id = @departmentId
+            ORDER BY name;
+            """,
             reader => new TaskDepartmentOptionDto(reader.GetInt64Value("id"), reader.GetStringValue("name")),
+            ScopeParameters(scope),
             cancellationToken);
 
         var users = await QueryAsync(
@@ -99,6 +120,7 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             SELECT id, COALESCE(full_name, username) AS label, COALESCE(role_label, '') AS role, department_id
             FROM users
             WHERE is_active = TRUE
+              AND (@isAdmin OR department_id = @departmentId)
             ORDER BY label;
             """,
             reader => new TaskMemberOptionDto(
@@ -106,6 +128,7 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
                 reader.GetStringValue("label"),
                 reader.GetStringValue("role"),
                 reader.GetNullableInt64("department_id")),
+            ScopeParameters(scope),
             cancellationToken);
 
         var priorities = await QueryAsync(
@@ -140,6 +163,14 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
                 new("inter-request", "Từ yêu cầu liên phòng ban")
             ]);
     }
+
+    private static IReadOnlyList<(string Name, object? Value)> ScopeParameters(UserScope scope) =>
+    [
+        ("@userId", scope.UserId),
+        ("@departmentId", scope.DepartmentId),
+        ("@isAdmin", scope.IsAdmin),
+        ("@isManager", scope.IsManager)
+    ];
 
     private Task<IReadOnlyList<SubTaskDto>> GetSubtasksAsync(CancellationToken cancellationToken)
     {
