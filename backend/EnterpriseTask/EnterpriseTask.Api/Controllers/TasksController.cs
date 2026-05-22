@@ -1,14 +1,17 @@
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace EnterpriseTask.Api.Controllers;
 
 [ApiController]
 [Authorize]
 [Route("api/tasks")]
-public sealed class TasksController(ITaskQueries taskQueries, ITaskCommands taskCommands) : ControllerBase
+public sealed class TasksController(
+    ITaskQueries taskQueries,
+    ITaskCommands taskCommands,
+    ICurrentUserContext currentUser) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<TaskDto>>> Get(CancellationToken cancellationToken)
@@ -107,7 +110,7 @@ public sealed class TasksController(ITaskQueries taskQueries, ITaskCommands task
 
     private bool TryGetActorId(out Guid actorUserId)
     {
-        return Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out actorUserId);
+        return currentUser.TryGetUserId(out actorUserId);
     }
 
     private IActionResult ToActionResult(TaskCommandResult result)

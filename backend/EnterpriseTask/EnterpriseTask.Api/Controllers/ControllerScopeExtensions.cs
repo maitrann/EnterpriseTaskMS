@@ -9,7 +9,7 @@ internal static class ControllerScopeExtensions
     public static UserScope GetUserScope(this ControllerBase controller)
     {
         var userIdValue = controller.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!long.TryParse(userIdValue, out var userId))
+        if (!Guid.TryParse(userIdValue, out var userId))
         {
             throw new UnauthorizedAccessException("Missing authenticated user id.");
         }
@@ -26,7 +26,8 @@ internal static class ControllerScopeExtensions
         return new UserScope(
             userId,
             departmentId,
-            roles.Any(role => role.Contains("admin") || role.Contains("director")),
+            roles.Any(role => role.Contains("admin")),
+            roles.Any(role => role.Contains("director")),
             roles.Any(role => role.Contains("manager")));
     }
 }

@@ -1,3 +1,5 @@
+using EnterpriseTask.Api.Auth;
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi;
@@ -9,6 +11,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -12,6 +12,11 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
 
+        if (!await CanUseDepartmentAsync(actorUserId, request.DepartmentId, cancellationToken))
+        {
+            return new TaskCreateResult(TaskCommandResult.Forbidden);
+        }
+
         if (request.AssigneeId is not null
             && request.AssigneeId.Value != actorUserId
             && !await HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
@@ -227,6 +232,40 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
 
         return await ExecuteScalarAsync<bool>(sql,
             [("@actorUserId", actorUserId), ("@permissionCode", permissionCode)],
+            cancellationToken);
+    }
+
+    private async Task<bool> CanUseDepartmentAsync(Guid actorUserId, long? departmentId, CancellationToken cancellationToken)
+    {
+        if (departmentId is null)
+        {
+            return true;
+        }
+
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM user_roles ur
+                JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = @actorUserId
+                  AND r.code IN ('admin', 'director')
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM profiles p
+                WHERE p.id = @actorUserId
+                  AND p.department_id = @departmentId
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM user_department_scopes uds
+                WHERE uds.user_id = @actorUserId
+                  AND uds.department_id = @departmentId
+            );
+            """;
+
+        return await ExecuteScalarAsync<bool>(sql,
+            [("@actorUserId", actorUserId), ("@departmentId", departmentId.Value)],
             cancellationToken);
     }
 

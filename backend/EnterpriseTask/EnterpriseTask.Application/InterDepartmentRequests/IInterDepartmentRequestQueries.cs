@@ -15,15 +15,15 @@ public interface IInterDepartmentRequestQueries
 
 public interface IInterDepartmentRequestCommands
 {
-    Task<Guid> CreateAsync(CreateInterDepartmentRequestCommand request, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCreateResult> CreateAsync(UserScope scope, CreateInterDepartmentRequestCommand request, CancellationToken cancellationToken);
 
-    Task<bool> AcknowledgeAsync(Guid requestId, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCommandResult> AcknowledgeAsync(UserScope scope, Guid requestId, CancellationToken cancellationToken);
 
-    Task<bool> AssignOwnerAsync(Guid requestId, AssignOwnerRequest request, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCommandResult> AssignOwnerAsync(UserScope scope, Guid requestId, AssignOwnerRequest request, CancellationToken cancellationToken);
 
-    Task<bool> UpdateStatusAsync(Guid requestId, UpdateRequestStatusRequest request, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCommandResult> UpdateStatusAsync(UserScope scope, Guid requestId, UpdateRequestStatusRequest request, CancellationToken cancellationToken);
 
-    Task<Guid?> AddMessageAsync(Guid requestId, AddRequestMessageRequest request, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCreateResult> AddMessageAsync(UserScope scope, Guid requestId, AddRequestMessageRequest request, CancellationToken cancellationToken);
 
-    Task<bool> CloseAsync(Guid requestId, CancellationToken cancellationToken);
+    Task<InterDepartmentRequestCommandResult> CloseAsync(UserScope scope, Guid requestId, CancellationToken cancellationToken);
 }

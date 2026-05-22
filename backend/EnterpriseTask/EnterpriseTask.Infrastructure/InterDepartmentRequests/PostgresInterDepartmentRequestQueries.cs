@@ -40,11 +40,17 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
             LEFT JOIN profiles ru ON ru.id = r.requester_user_id
             LEFT JOIN profiles ou ON ou.id = r.owner_id
             LEFT JOIN inter_request_sla_policies p ON p.key = r.sla_policy_key
-            WHERE @isAdmin
+            WHERE @isElevated
                OR r.requester_user_id = @userId
                OR r.owner_id = @userId
                OR r.requester_department_id = @departmentId
                OR r.target_department_id = @departmentId
+               OR EXISTS (
+                    SELECT 1
+                    FROM user_department_scopes uds
+                    WHERE uds.user_id = @userId
+                      AND uds.department_id IN (r.requester_department_id, r.target_department_id)
+               )
             ORDER BY r.created_at DESC;
             """;
 
@@ -91,7 +97,7 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
         [
             ("@userId", scope.UserId),
             ("@departmentId", scope.DepartmentId),
-            ("@isAdmin", scope.IsAdmin)
+            ("@isElevated", scope.CanSeeAllData)
         ],
         cancellationToken)).ToList();
 

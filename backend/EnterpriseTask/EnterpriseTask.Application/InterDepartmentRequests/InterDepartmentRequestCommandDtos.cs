@@ -17,3 +17,12 @@ public sealed record AssignOwnerRequest(Guid OwnerId);
 public sealed record UpdateRequestStatusRequest(string Status);
 
 public sealed record AddRequestMessageRequest(Guid? AuthorUserId, string AuthorName, string AuthorRole, string? AuthorDepartment, string Body);
+
+public enum InterDepartmentRequestCommandResult
+{
+    Success,
+    NotFound,
+    Forbidden
+}
+
+public sealed record InterDepartmentRequestCreateResult(InterDepartmentRequestCommandResult Result, Guid? Id = null);

@@ -12,7 +12,7 @@ public sealed class PostgresProjectQueries(ApplicationDbContext dbContext) : Pos
             SELECT id, code, name, description, department_id, owner_id, start_date, end_date,
                    status::text AS status, created_by, created_at, updated_at
             FROM projects
-            WHERE @isAdmin OR department_id = @departmentId OR owner_id = @userId OR created_by = @userId
+            WHERE @isElevated OR department_id = @departmentId OR owner_id = @userId OR created_by = @userId
             ORDER BY created_at DESC, id DESC;
             """;
 
@@ -32,7 +32,7 @@ public sealed class PostgresProjectQueries(ApplicationDbContext dbContext) : Pos
             [
                 ("@userId", scope.UserId),
                 ("@departmentId", scope.DepartmentId),
-                ("@isAdmin", scope.IsAdmin)
+                ("@isElevated", scope.CanSeeAllData)
             ],
             cancellationToken);
     }

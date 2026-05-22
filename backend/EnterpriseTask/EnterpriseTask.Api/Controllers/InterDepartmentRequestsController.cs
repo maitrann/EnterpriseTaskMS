@@ -1,3 +1,4 @@
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.InterDepartmentRequests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,12 +10,13 @@ namespace EnterpriseTask.Api.Controllers;
 [Route("api/inter-department-requests")]
 public sealed class InterDepartmentRequestsController(
     IInterDepartmentRequestQueries requestQueries,
-    IInterDepartmentRequestCommands requestCommands) : ControllerBase
+    IInterDepartmentRequestCommands requestCommands,
+    ICurrentUserContext currentUser) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<InterDepartmentRequestDto>>> Get(CancellationToken cancellationToken)
     {
-        return Ok(await requestQueries.GetRequestsAsync(this.GetUserScope(), cancellationToken));
+        return Ok(await requestQueries.GetRequestsAsync(currentUser.GetRequiredScope(), cancellationToken));
     }
 
     [HttpGet("department-options")]
@@ -38,38 +40,59 @@ public sealed class InterDepartmentRequestsController(
     [HttpPost]
     public async Task<ActionResult> Create(CreateInterDepartmentRequestCommand request, CancellationToken cancellationToken)
     {
-        var id = await requestCommands.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(Get), new { id }, new { id });
+        var result = await requestCommands.CreateAsync(currentUser.GetRequiredScope(), request, cancellationToken);
+        return ToCreateActionResult(result, created: true);
     }
 
     [HttpPost("{id:guid}/acknowledge")]
     public async Task<IActionResult> Acknowledge(Guid id, CancellationToken cancellationToken)
     {
-        return await requestCommands.AcknowledgeAsync(id, cancellationToken) ? NoContent() : NotFound();
+        return ToActionResult(await requestCommands.AcknowledgeAsync(currentUser.GetRequiredScope(), id, cancellationToken));
     }
 
     [HttpPost("{id:guid}/assign-owner")]
     public async Task<IActionResult> AssignOwner(Guid id, AssignOwnerRequest request, CancellationToken cancellationToken)
     {
-        return await requestCommands.AssignOwnerAsync(id, request, cancellationToken) ? NoContent() : NotFound();
+        return ToActionResult(await requestCommands.AssignOwnerAsync(currentUser.GetRequiredScope(), id, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateRequestStatusRequest request, CancellationToken cancellationToken)
     {
-        return await requestCommands.UpdateStatusAsync(id, request, cancellationToken) ? NoContent() : NotFound();
+        return ToActionResult(await requestCommands.UpdateStatusAsync(currentUser.GetRequiredScope(), id, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/messages")]
     public async Task<ActionResult> AddMessage(Guid id, AddRequestMessageRequest request, CancellationToken cancellationToken)
     {
-        var messageId = await requestCommands.AddMessageAsync(id, request, cancellationToken);
-        return messageId is null ? NotFound() : Ok(new { id = messageId });
+        var result = await requestCommands.AddMessageAsync(currentUser.GetRequiredScope(), id, request, cancellationToken);
+        return ToCreateActionResult(result, created: false);
     }
 
     [HttpPost("{id:guid}/close")]
     public async Task<IActionResult> Close(Guid id, CancellationToken cancellationToken)
     {
-        return await requestCommands.CloseAsync(id, cancellationToken) ? NoContent() : NotFound();
+        return ToActionResult(await requestCommands.CloseAsync(currentUser.GetRequiredScope(), id, cancellationToken));
+    }
+
+    private IActionResult ToActionResult(InterDepartmentRequestCommandResult result)
+    {
+        return result switch
+        {
+            InterDepartmentRequestCommandResult.Success => NoContent(),
+            InterDepartmentRequestCommandResult.Forbidden => Forbid(),
+            _ => NotFound()
+        };
+    }
+
+    private ActionResult ToCreateActionResult(InterDepartmentRequestCreateResult result, bool created)
+    {
+        return result.Result switch
+        {
+            InterDepartmentRequestCommandResult.Success when created => CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id }),
+            InterDepartmentRequestCommandResult.Success => Ok(new { id = result.Id }),
+            InterDepartmentRequestCommandResult.Forbidden => Forbid(),
+            _ => NotFound()
+        };
     }
 }
