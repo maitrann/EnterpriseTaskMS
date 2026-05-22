@@ -1,3 +1,5 @@
+using EnterpriseTask.Application.Common;
+
 namespace EnterpriseTask.Application.Tasks;
 
 public interface ITaskQueries

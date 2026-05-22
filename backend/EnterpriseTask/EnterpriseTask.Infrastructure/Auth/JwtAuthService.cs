@@ -35,7 +35,8 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
                 reader.GetNullableString("avatar_url"),
                 reader.GetNullableInt64("department_id"),
                 reader.GetBooleanValue("is_active"),
-                reader.GetDateTimeOffsetValue("created_at")),
+                reader.GetDateTimeOffsetValue("created_at"),
+                reader.GetStringValue("role_codes")),
             [("@email", normalizedEmail)],
             cancellationToken);
 
@@ -97,12 +98,13 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Name, user.Username)
+            new(ClaimTypes.Name, user.Username),
+            new("department_id", user.DepartmentId?.ToString() ?? string.Empty)
         };
 
-        if (!string.IsNullOrWhiteSpace(user.Role))
+        foreach (var roleCode in user.RoleCodes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            claims.Add(new Claim(ClaimTypes.Role, user.Role));
+            claims.Add(new Claim(ClaimTypes.Role, roleCode));
         }
 
         var token = new JwtSecurityToken(
@@ -132,7 +134,7 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             user.Username,
             user.Email,
             user.FullName,
-            user.Role,
+            string.IsNullOrWhiteSpace(user.RoleCodes) ? user.Role : user.RoleCodes,
             user.AvatarUrl,
             user.DepartmentId,
             user.IsActive,
@@ -148,5 +150,6 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         string? AvatarUrl,
         long? DepartmentId,
         bool IsActive,
-        DateTimeOffset CreatedAt);
+        DateTimeOffset CreatedAt,
+        string RoleCodes);
 }

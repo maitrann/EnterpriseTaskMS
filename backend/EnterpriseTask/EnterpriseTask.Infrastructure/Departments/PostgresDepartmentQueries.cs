@@ -1,3 +1,4 @@
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Departments;
 using EnterpriseTask.Infrastructure.Persistence;
 
@@ -5,7 +6,7 @@ namespace EnterpriseTask.Infrastructure.Departments;
 
 public sealed class PostgresDepartmentQueries(ApplicationDbContext dbContext) : PostgresQueryBase(dbContext), IDepartmentQueries
 {
-    public Task<IReadOnlyList<DepartmentCardDto>> GetCardsAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<DepartmentCardDto>> GetCardsAsync(UserScope scope, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT
@@ -25,6 +26,7 @@ public sealed class PostgresDepartmentQueries(ApplicationDbContext dbContext) : 
             LEFT JOIN profiles u ON u.department_id = d.id
             LEFT JOIN tasks t ON t.department_id = d.id
             LEFT JOIN task_statuses ts ON ts.id = t.status_id
+            WHERE @isAdmin OR d.id = @departmentId
             GROUP BY d.id, d.name, d.description
             ORDER BY d.name;
             """;
@@ -37,6 +39,8 @@ public sealed class PostgresDepartmentQueries(ApplicationDbContext dbContext) : 
             reader.GetInt32Value("completed_tasks"),
             reader.GetStringValue("lead"),
             reader.GetStringValue("sla"),
-            reader.GetStringValue("tone")), cancellationToken);
+            reader.GetStringValue("tone")),
+            [("@departmentId", scope.DepartmentId), ("@isAdmin", scope.IsAdmin)],
+            cancellationToken);
     }
 }
