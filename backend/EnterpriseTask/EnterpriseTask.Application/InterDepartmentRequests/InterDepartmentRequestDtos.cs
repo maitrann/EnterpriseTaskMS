@@ -33,7 +33,7 @@ public sealed record InterDepartmentRequestDto(
     string RequesterDepartment,
     string RequesterDepartmentId,
     string RequesterName,
-    long? RequesterUserId,
+    Guid? RequesterUserId,
     string TargetDepartment,
     string TargetDepartmentId,
     string? Owner,

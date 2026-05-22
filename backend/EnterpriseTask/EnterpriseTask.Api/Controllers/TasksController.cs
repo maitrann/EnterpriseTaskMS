@@ -1,66 +1,132 @@
 using EnterpriseTask.Application.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace EnterpriseTask.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/tasks")]
 public sealed class TasksController(ITaskQueries taskQueries, ITaskCommands taskCommands) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<TaskDto>>> Get(CancellationToken cancellationToken)
     {
-        return Ok(await taskQueries.GetTasksAsync(cancellationToken));
+        return TryGetActorId(out var actorUserId)
+            ? Ok(await taskQueries.GetTasksAsync(actorUserId, cancellationToken))
+            : Unauthorized();
     }
 
     [HttpGet("activities")]
     public async Task<ActionResult<IReadOnlyList<TaskActivityDto>>> GetActivities(CancellationToken cancellationToken)
     {
-        return Ok(await taskQueries.GetActivitiesAsync(cancellationToken));
+        return TryGetActorId(out var actorUserId)
+            ? Ok(await taskQueries.GetActivitiesAsync(actorUserId, cancellationToken))
+            : Unauthorized();
     }
 
     [HttpGet("form-options")]
     public async Task<ActionResult<TaskFormOptionsDto>> GetFormOptions(CancellationToken cancellationToken)
     {
-        return Ok(await taskQueries.GetFormOptionsAsync(cancellationToken));
+        return TryGetActorId(out var actorUserId)
+            ? Ok(await taskQueries.GetFormOptionsAsync(actorUserId, cancellationToken))
+            : Unauthorized();
     }
 
     [HttpPost]
     public async Task<ActionResult> Create(CreateTaskRequest request, CancellationToken cancellationToken)
     {
-        var id = await taskCommands.CreateAsync(request, cancellationToken);
-        return CreatedAtAction(nameof(Get), new { id }, new { id });
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await taskCommands.CreateAsync(actorUserId, request, cancellationToken);
+        return result.Result == TaskCommandResult.Forbidden
+            ? Forbid()
+            : CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id });
     }
 
-    [HttpPost("{id:long}/status")]
-    public async Task<IActionResult> UpdateStatus(long id, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:guid}/status")]
+    public async Task<IActionResult> UpdateStatus(Guid id, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
-        return await taskCommands.UpdateStatusAsync(id, request, cancellationToken) ? NoContent() : NotFound();
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.UpdateStatusAsync(actorUserId, id, request, cancellationToken));
     }
 
-    [HttpPost("{id:long}/comments")]
-    public async Task<ActionResult> AddComment(long id, AddTaskCommentRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:guid}/comments")]
+    public async Task<ActionResult> AddComment(Guid id, AddTaskCommentRequest request, CancellationToken cancellationToken)
     {
-        var commentId = await taskCommands.AddCommentAsync(id, request, cancellationToken);
-        return commentId is null ? NotFound() : Ok(new { id = commentId });
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await taskCommands.AddCommentAsync(actorUserId, id, request, cancellationToken);
+        return ToCreateActionResult(result);
     }
 
-    [HttpPost("{id:long}/subtasks")]
-    public async Task<ActionResult> CreateSubTask(long id, CreateSubTaskRequest request, CancellationToken cancellationToken)
+    [HttpPost("{id:guid}/subtasks")]
+    public async Task<ActionResult> CreateSubTask(Guid id, CreateSubTaskRequest request, CancellationToken cancellationToken)
     {
-        var subTaskId = await taskCommands.CreateSubTaskAsync(id, request, cancellationToken);
-        return subTaskId is null ? NotFound() : Ok(new { id = subTaskId });
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await taskCommands.CreateSubTaskAsync(actorUserId, id, request, cancellationToken);
+        return ToCreateActionResult(result);
     }
 
-    [HttpPut("{id:long}/subtasks/{subTaskId:long}")]
-    public async Task<IActionResult> UpdateSubTask(long id, long subTaskId, UpdateSubTaskRequest request, CancellationToken cancellationToken)
+    [HttpPut("{id:guid}/subtasks/{subTaskId:guid}")]
+    public async Task<IActionResult> UpdateSubTask(Guid id, Guid subTaskId, UpdateSubTaskRequest request, CancellationToken cancellationToken)
     {
-        return await taskCommands.UpdateSubTaskAsync(id, subTaskId, request, cancellationToken) ? NoContent() : NotFound();
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.UpdateSubTaskAsync(actorUserId, id, subTaskId, request, cancellationToken));
     }
 
-    [HttpDelete("{id:long}/subtasks/{subTaskId:long}")]
-    public async Task<IActionResult> DeleteSubTask(long id, long subTaskId, CancellationToken cancellationToken)
+    [HttpDelete("{id:guid}/subtasks/{subTaskId:guid}")]
+    public async Task<IActionResult> DeleteSubTask(Guid id, Guid subTaskId, CancellationToken cancellationToken)
     {
-        return await taskCommands.DeleteSubTaskAsync(id, subTaskId, cancellationToken) ? NoContent() : NotFound();
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.DeleteSubTaskAsync(actorUserId, id, subTaskId, cancellationToken));
+    }
+
+    private bool TryGetActorId(out Guid actorUserId)
+    {
+        return Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out actorUserId);
+    }
+
+    private IActionResult ToActionResult(TaskCommandResult result)
+    {
+        return result switch
+        {
+            TaskCommandResult.Success => NoContent(),
+            TaskCommandResult.Forbidden => Forbid(),
+            _ => NotFound()
+        };
+    }
+
+    private ActionResult ToCreateActionResult(TaskCreateResult result)
+    {
+        return result.Result switch
+        {
+            TaskCommandResult.Success => Ok(new { id = result.Id }),
+            TaskCommandResult.Forbidden => Forbid(),
+            _ => NotFound()
+        };
     }
 }

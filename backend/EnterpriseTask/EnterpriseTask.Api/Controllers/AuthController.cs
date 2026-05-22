@@ -22,7 +22,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     public async Task<ActionResult<AuthUserDto>> Me(CancellationToken cancellationToken)
     {
         var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!long.TryParse(userIdValue, out var userId))
+        if (!Guid.TryParse(userIdValue, out var userId))
         {
             return Unauthorized();
         }

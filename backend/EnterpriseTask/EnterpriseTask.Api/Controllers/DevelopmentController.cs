@@ -15,11 +15,19 @@ public sealed class DevelopmentController(IDatabaseSeeder databaseSeeder, IWebHo
             return NotFound();
         }
 
-        await databaseSeeder.SeedAsync(cancellationToken);
+        try
+        {
+            await databaseSeeder.SeedAsync(cancellationToken);
+        }
+        catch (NotSupportedException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+
         return Ok(new
         {
             message = "Development seed data has been applied.",
-            accounts = new[] { "admin@etms.local", "chau.hr@etms.local", "tran.dev@etms.local" }
+            accounts = Array.Empty<string>()
         });
     }
 }

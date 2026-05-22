@@ -1,43 +1,51 @@
+import { BigIntId, EntityId, Uuid } from './common-id.model';
 import { SubTask } from './subtask.model';
 
 export type TaskExtensionRequestStatus = 'pending' | 'approved' | 'rejected';
+export type TaskAssignmentType = 'assignee' | 'co_assignee' | 'watcher';
+
+export interface TaskAssignment {
+  userId: Uuid;
+  assignmentType: TaskAssignmentType;
+  assignedBy?: Uuid;
+  assignedAt: Date;
+}
 
 export interface TaskExtensionRequest {
-  id: number;
+  id: EntityId;
   requestedDueDate: Date;
   reason: string;
   status: TaskExtensionRequestStatus;
-  requestedByUserId: number;
+  requestedByUserId?: EntityId;
   requestedAt: Date;
-  reviewedByUserId?: number;
+  reviewedByUserId?: EntityId;
   reviewedAt?: Date;
   reviewNote?: string;
 }
 
 export interface Task {
-  id: number;
+  id: EntityId;
   code: string;
-  projectId: number;
-  parentTaskId?: number;
-
+  projectId?: EntityId;
+  parentTaskId?: EntityId;
   title: string;
   description?: string;
   taskType?: string;
-  departmentId?: number;
-
-  statusId?: number;
-  priorityId?: number;
+  departmentId?: BigIntId;
+  statusId?: BigIntId;
+  priorityId?: BigIntId;
   urgencyLevel?: string;
   securityLevel?: string;
-
-  reporterId?: number;
-  assigneeId?: number;
-  collaboratorIds?: number[];
-  watcherIds?: number[];
-
+  reporterId?: EntityId;
+  createdBy?: EntityId;
+  // New schema shape
+  assignments?: TaskAssignment[];
+  // Transitional legacy shape
+  assigneeId?: EntityId;
+  collaboratorIds?: EntityId[];
+  watcherIds?: EntityId[];
   startDate?: Date;
   dueDate?: Date;
-
   progress: number;
   source?: string;
   attachmentNames?: string[];
@@ -47,10 +55,8 @@ export interface Task {
   subtasks?: SubTask[];
   subtaskProgressAutoSync?: boolean;
   parentCompletionSuggested?: boolean;
-
   estimatedHours?: number;
   actualHours?: number;
-
   createdAt: Date;
   updatedAt?: Date;
 }

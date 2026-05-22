@@ -22,7 +22,7 @@ public sealed class PostgresDepartmentQueries(ApplicationDbContext dbContext) : 
                 ELSE 'blue'
               END AS tone
             FROM departments d
-            LEFT JOIN users u ON u.department_id = d.id
+            LEFT JOIN profiles u ON u.department_id = d.id
             LEFT JOIN tasks t ON t.department_id = d.id
             LEFT JOIN task_statuses ts ON ts.id = t.status_id
             GROUP BY d.id, d.name, d.description

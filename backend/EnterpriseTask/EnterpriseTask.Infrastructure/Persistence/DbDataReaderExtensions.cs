@@ -27,6 +27,18 @@ internal static class DbDataReaderExtensions
         return value is DBNull ? null : Convert.ToInt64(value);
     }
 
+    public static Guid GetGuidValue(this DbDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is Guid guid ? guid : Guid.Parse(Convert.ToString(value) ?? string.Empty);
+    }
+
+    public static Guid? GetNullableGuid(this DbDataReader reader, string name)
+    {
+        var value = reader[name];
+        return value is DBNull ? null : value is Guid guid ? guid : Guid.Parse(Convert.ToString(value) ?? string.Empty);
+    }
+
     public static int GetInt32Value(this DbDataReader reader, string name)
     {
         return Convert.ToInt32(reader[name]);

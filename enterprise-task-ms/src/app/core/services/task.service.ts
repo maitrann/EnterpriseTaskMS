@@ -81,7 +81,7 @@ export class TaskService {
       securityLevel: input.securityLevel,
       reporterId: 1,
       assigneeId: input.assigneeId,
-      collaboratorIds: [...input.collaboratorIds],
+      collaboratorIds: [...(input.collaboratorIds ?? [])],
       watcherIds: [...input.watcherIds],
       startDate: input.startDate,
       dueDate: input.dueDate,

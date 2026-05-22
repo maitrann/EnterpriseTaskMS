@@ -3,7 +3,7 @@ namespace EnterpriseTask.Application.Auth;
 public sealed record LoginRequest(string Email, string Password);
 
 public sealed record AuthUserDto(
-    long Id,
+    Guid Id,
     string Username,
     string? Email,
     string? FullName,

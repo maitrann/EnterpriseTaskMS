@@ -4,10 +4,10 @@ public sealed record CreateTaskRequest(
     string Title,
     string? Description,
     string? TaskType,
-    long? ProjectId,
-    long? ParentTaskId,
+    Guid? ProjectId,
+    Guid? ParentTaskId,
     long? DepartmentId,
-    long? AssigneeId,
+    Guid? AssigneeId,
     long? PriorityId,
     DateOnly? StartDate,
     DateOnly? DueDate,
@@ -16,8 +16,17 @@ public sealed record CreateTaskRequest(
 
 public sealed record UpdateTaskStatusRequest(long StatusId, string? Note);
 
-public sealed record AddTaskCommentRequest(long? UserId, string Content);
+public sealed record AddTaskCommentRequest(string Content);
 
-public sealed record CreateSubTaskRequest(string Title, long? AssigneeId, DateOnly? DueDate, int? Progress);
+public sealed record CreateSubTaskRequest(string Title, Guid? AssigneeId, DateOnly? DueDate, int? Progress);
 
-public sealed record UpdateSubTaskRequest(string? Title, long? AssigneeId, DateOnly? DueDate, int? Progress, bool? Done);
+public sealed record UpdateSubTaskRequest(string? Title, Guid? AssigneeId, DateOnly? DueDate, int? Progress, bool? Done);
+
+public enum TaskCommandResult
+{
+    Success,
+    NotFound,
+    Forbidden
+}
+
+public sealed record TaskCreateResult(TaskCommandResult Result, Guid? Id = null);

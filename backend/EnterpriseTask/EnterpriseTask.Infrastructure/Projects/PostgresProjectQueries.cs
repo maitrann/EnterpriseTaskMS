@@ -15,16 +15,16 @@ public sealed class PostgresProjectQueries(ApplicationDbContext dbContext) : Pos
             """;
 
         return QueryAsync(sql, reader => new ProjectDto(
-            reader.GetInt64Value("id"),
+            reader.GetGuidValue("id"),
             reader.GetNullableString("code"),
             reader.GetStringValue("name"),
             reader.GetNullableString("description"),
             reader.GetNullableInt64("department_id"),
-            reader.GetNullableInt64("owner_id"),
+            reader.GetNullableGuid("owner_id"),
             reader.GetNullableDateOnly("start_date"),
             reader.GetNullableDateOnly("end_date"),
             reader.GetNullableString("status"),
-            reader.GetNullableInt64("created_by"),
+            reader.GetNullableGuid("created_by"),
             reader.GetDateTimeOffsetValue("created_at"),
             reader.GetNullableDateTimeOffset("updated_at")), cancellationToken);
     }

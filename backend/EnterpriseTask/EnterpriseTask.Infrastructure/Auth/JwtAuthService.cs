@@ -16,16 +16,20 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var matches = await QueryAsync(
             """
-            SELECT id, username, email, password_hash, full_name, role_label, avatar_url, department_id, is_active, created_at
-            FROM users
-            WHERE LOWER(email) = LOWER(@email) OR LOWER(username) = LOWER(@email)
+            SELECT p.id, COALESCE(p.employee_code, p.email, p.id::text) AS username, p.email,
+                   p.full_name, COALESCE(r.name, r.code) AS role_label, p.avatar_url,
+                   p.department_id, p.is_active, p.created_at
+            FROM profiles p
+            LEFT JOIN user_roles ur ON ur.user_id = p.id
+            LEFT JOIN roles r ON r.id = ur.role_id
+            WHERE LOWER(p.email) = LOWER(@email) OR LOWER(p.employee_code) = LOWER(@email)
+            ORDER BY r.id
             LIMIT 1;
             """,
             reader => new UserLoginRow(
-                reader.GetInt64Value("id"),
+                reader.GetGuidValue("id"),
                 reader.GetStringValue("username"),
                 reader.GetNullableString("email"),
-                reader.GetNullableString("password_hash"),
                 reader.GetNullableString("full_name"),
                 reader.GetNullableString("role_label"),
                 reader.GetNullableString("avatar_url"),
@@ -36,7 +40,7 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             cancellationToken);
 
         var user = matches.SingleOrDefault();
-        if (user is null || !user.IsActive || !PasswordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null || !user.IsActive || !AllowProfilePasswordBypass())
         {
             return null;
         }
@@ -46,17 +50,22 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         return new LoginResponse(token, expiresAt, ToDto(user));
     }
 
-    public async Task<AuthUserDto?> GetUserAsync(long userId, CancellationToken cancellationToken)
+    public async Task<AuthUserDto?> GetUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         var users = await QueryAsync(
             """
-            SELECT id, username, email, full_name, role_label, avatar_url, department_id, is_active, created_at
-            FROM users
-            WHERE id = @id
+            SELECT p.id, COALESCE(p.employee_code, p.email, p.id::text) AS username, p.email,
+                   p.full_name, COALESCE(r.name, r.code) AS role_label, p.avatar_url,
+                   p.department_id, p.is_active, p.created_at
+            FROM profiles p
+            LEFT JOIN user_roles ur ON ur.user_id = p.id
+            LEFT JOIN roles r ON r.id = ur.role_id
+            WHERE p.id = @id
+            ORDER BY r.id
             LIMIT 1;
             """,
             reader => new AuthUserDto(
-                reader.GetInt64Value("id"),
+                reader.GetGuidValue("id"),
                 reader.GetStringValue("username"),
                 reader.GetNullableString("email"),
                 reader.GetNullableString("full_name"),
@@ -111,6 +120,11 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         return int.TryParse(configuration["Jwt:ExpireMinutes"], out var minutes) ? minutes : 60;
     }
 
+    private bool AllowProfilePasswordBypass()
+    {
+        return bool.TryParse(configuration["Auth:AllowProfilePasswordBypass"], out var enabled) && enabled;
+    }
+
     private static AuthUserDto ToDto(UserLoginRow user)
     {
         return new AuthUserDto(
@@ -126,10 +140,9 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
     }
 
     private sealed record UserLoginRow(
-        long Id,
+        Guid Id,
         string Username,
         string? Email,
-        string? PasswordHash,
         string? FullName,
         string? Role,
         string? AvatarUrl,

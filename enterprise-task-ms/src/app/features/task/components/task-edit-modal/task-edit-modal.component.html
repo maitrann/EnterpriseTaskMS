@@ -85,7 +85,7 @@
             <label class="field-label">Dự án</label>
             <app-custom-select
               [options]="projectSelectOptions()"
-              [value]="task.projectId"
+              [value]="task.projectId ?? null"
               helperLabel="Chọn dự án quản lý"
               placeholder="Chọn dự án"
               searchPlaceholder="Tìm dự án..."

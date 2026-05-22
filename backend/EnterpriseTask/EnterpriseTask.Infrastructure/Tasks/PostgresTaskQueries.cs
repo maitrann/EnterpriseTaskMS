@@ -6,29 +6,85 @@ namespace EnterpriseTask.Infrastructure.Tasks;
 
 public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : PostgresQueryBase(dbContext), ITaskQueries
 {
-    public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         const string tasksSql = """
             SELECT
               t.id, t.code, t.project_id, t.parent_task_id, t.title, t.description, t.task_type,
               t.department_id, t.status_id, t.priority_id, t.urgency_level, t.security_level,
-              t.reporter_id, t.assignee_id, t.start_date, t.due_date, t.progress, t.source,
+              t.reporter_id, t.start_date, t.due_date, t.progress, t.source,
               t.subtask_progress_auto_sync, t.parent_completion_suggested, t.estimated_hours,
               t.actual_hours, t.created_at, t.updated_at,
-              COALESCE((SELECT array_agg(user_id ORDER BY user_id) FROM task_collaborators WHERE task_id = t.id), ARRAY[]::bigint[]) AS collaborator_ids,
-              COALESCE((SELECT array_agg(user_id ORDER BY user_id) FROM task_watchers WHERE task_id = t.id), ARRAY[]::bigint[]) AS watcher_ids,
+              (SELECT user_id FROM task_assignments WHERE task_id = t.id AND assignment_type = 'assignee' ORDER BY assigned_at LIMIT 1) AS assignee_id,
+              COALESCE((SELECT array_agg(user_id ORDER BY user_id) FROM task_assignments WHERE task_id = t.id AND assignment_type = 'co_assignee'), ARRAY[]::uuid[]) AS collaborator_ids,
+              COALESCE((SELECT array_agg(user_id ORDER BY user_id) FROM task_assignments WHERE task_id = t.id AND assignment_type = 'watcher'), ARRAY[]::uuid[]) AS watcher_ids,
               COALESCE((SELECT array_agg(file_name ORDER BY id) FROM attachments WHERE task_id = t.id), ARRAY[]::text[]) AS attachment_names,
               COALESCE((SELECT array_agg(tags.name ORDER BY tags.name) FROM task_tags JOIN tags ON tags.id = task_tags.tag_id WHERE task_tags.task_id = t.id), ARRAY[]::text[]) AS tags,
               COALESCE((SELECT array_agg(content ORDER BY created_at DESC) FROM task_comments WHERE task_id = t.id), ARRAY[]::text[]) AS processing_notes
             FROM tasks t
+            WHERE
+              EXISTS (
+                SELECT 1
+                FROM user_roles ur
+                JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = @actorUserId
+                  AND r.code IN ('admin', 'director')
+              )
+              OR (
+                (
+                  t.created_by = @actorUserId
+                  OR t.reporter_id = @actorUserId
+                  OR EXISTS (
+                    SELECT 1
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id
+                      AND ta.user_id = @actorUserId
+                  )
+                  OR (
+                    t.department_id IS NOT NULL
+                    AND EXISTS (
+                      SELECT 1
+                      FROM user_roles ur
+                      JOIN roles r ON r.id = ur.role_id
+                      WHERE ur.user_id = @actorUserId
+                        AND r.code = 'manager'
+                    )
+                    AND (
+                      EXISTS (
+                        SELECT 1
+                        FROM profiles me
+                        WHERE me.id = @actorUserId
+                          AND me.department_id = t.department_id
+                      )
+                      OR EXISTS (
+                        SELECT 1
+                        FROM user_department_scopes uds
+                        WHERE uds.user_id = @actorUserId
+                          AND uds.department_id = t.department_id
+                      )
+                    )
+                  )
+                )
+                AND (
+                  t.is_confidential = FALSE
+                  OR t.created_by = @actorUserId
+                  OR t.reporter_id = @actorUserId
+                  OR EXISTS (
+                    SELECT 1
+                    FROM task_assignments ta
+                    WHERE ta.task_id = t.id
+                      AND ta.user_id = @actorUserId
+                  )
+                )
+              )
             ORDER BY t.created_at DESC, t.id DESC;
             """;
 
         var tasks = (await QueryAsync(tasksSql, reader => new TaskDto(
-            reader.GetInt64Value("id"),
+            reader.GetGuidValue("id"),
             reader.GetStringValue("code"),
-            reader.GetNullableInt64("project_id"),
-            reader.GetNullableInt64("parent_task_id"),
+            reader.GetNullableGuid("project_id"),
+            reader.GetNullableGuid("parent_task_id"),
             reader.GetStringValue("title"),
             reader.GetNullableString("description"),
             reader.GetNullableString("task_type"),
@@ -37,10 +93,10 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableInt64("priority_id"),
             reader.GetNullableString("urgency_level"),
             reader.GetNullableString("security_level"),
-            reader.GetNullableInt64("reporter_id"),
-            reader.GetNullableInt64("assignee_id"),
-            (long[])reader["collaborator_ids"],
-            (long[])reader["watcher_ids"],
+            reader.GetNullableGuid("reporter_id"),
+            reader.GetNullableGuid("assignee_id"),
+            (Guid[])reader["collaborator_ids"],
+            (Guid[])reader["watcher_ids"],
             reader.GetNullableDateOnly("start_date"),
             reader.GetNullableDateOnly("due_date"),
             reader.GetInt32Value("progress"),
@@ -55,10 +111,12 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableDecimal("estimated_hours"),
             reader.GetNullableDecimal("actual_hours"),
             reader.GetDateTimeOffsetValue("created_at"),
-            reader.GetNullableDateTimeOffset("updated_at")), cancellationToken)).ToList();
+            reader.GetNullableDateTimeOffset("updated_at")),
+            [("@actorUserId", actorUserId)],
+            cancellationToken)).ToList();
 
-        var subtasks = await GetSubtasksAsync(cancellationToken);
-        var extensions = await GetExtensionRequestsAsync(cancellationToken);
+        var subtasks = await GetSubtasksAsync(actorUserId, cancellationToken);
+        var extensions = await GetExtensionRequestsAsync(actorUserId, cancellationToken);
 
         return tasks
             .Select(task => task with
@@ -69,43 +127,127 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             .ToList();
     }
 
-    public Task<IReadOnlyList<TaskActivityDto>> GetActivitiesAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<TaskActivityDto>> GetActivitiesAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT id, task_id, user_id, action_type, old_value, new_value, created_at
-            FROM task_activities
-            ORDER BY created_at DESC, id DESC;
+            SELECT a.id, a.task_id, a.user_id, a.action_type, a.old_value, a.new_value, a.created_at
+            FROM task_activities a
+            WHERE EXISTS (
+              SELECT 1
+              FROM tasks t
+              WHERE t.id = a.task_id
+                AND (
+                  EXISTS (
+                    SELECT 1
+                    FROM user_roles ur
+                    JOIN roles r ON r.id = ur.role_id
+                    WHERE ur.user_id = @actorUserId
+                      AND r.code IN ('admin', 'director')
+                  )
+                  OR (
+                    (
+                      t.created_by = @actorUserId
+                      OR t.reporter_id = @actorUserId
+                      OR EXISTS (
+                        SELECT 1 FROM task_assignments ta
+                        WHERE ta.task_id = t.id AND ta.user_id = @actorUserId
+                      )
+                      OR (
+                        t.department_id IS NOT NULL
+                        AND EXISTS (
+                          SELECT 1
+                          FROM user_roles ur
+                          JOIN roles r ON r.id = ur.role_id
+                          WHERE ur.user_id = @actorUserId
+                            AND r.code = 'manager'
+                        )
+                        AND (
+                          EXISTS (SELECT 1 FROM profiles me WHERE me.id = @actorUserId AND me.department_id = t.department_id)
+                          OR EXISTS (SELECT 1 FROM user_department_scopes uds WHERE uds.user_id = @actorUserId AND uds.department_id = t.department_id)
+                        )
+                      )
+                    )
+                    AND (
+                      t.is_confidential = FALSE
+                      OR t.created_by = @actorUserId
+                      OR t.reporter_id = @actorUserId
+                      OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
+                    )
+                  )
+                )
+            )
+            ORDER BY a.created_at DESC, a.id DESC;
             """;
 
         return QueryAsync(sql, reader => new TaskActivityDto(
-            reader.GetInt64Value("id"),
-            reader.GetInt64Value("task_id"),
-            reader.GetNullableInt64("user_id"),
+            reader.GetGuidValue("id"),
+            reader.GetGuidValue("task_id"),
+            reader.GetNullableGuid("user_id"),
             reader.GetNullableString("action_type"),
             reader.GetNullableString("old_value"),
             reader.GetNullableString("new_value"),
-            reader.GetDateTimeOffsetValue("created_at")), cancellationToken);
+            reader.GetDateTimeOffsetValue("created_at")),
+            [("@actorUserId", actorUserId)],
+            cancellationToken);
     }
 
-    public async Task<TaskFormOptionsDto> GetFormOptionsAsync(CancellationToken cancellationToken)
+    public async Task<TaskFormOptionsDto> GetFormOptionsAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         var departments = await QueryAsync(
-            "SELECT id, name FROM departments ORDER BY name;",
+            """
+            SELECT d.id, d.name
+            FROM departments d
+            WHERE
+              EXISTS (
+                SELECT 1
+                FROM user_roles ur
+                JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = @actorUserId
+                  AND r.code IN ('admin', 'director')
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM profiles me
+                WHERE me.id = @actorUserId
+                  AND me.department_id = d.id
+              )
+              OR EXISTS (
+                SELECT 1
+                FROM user_department_scopes uds
+                WHERE uds.user_id = @actorUserId
+                  AND uds.department_id = d.id
+              )
+            ORDER BY d.name;
+            """,
             reader => new TaskDepartmentOptionDto(reader.GetInt64Value("id"), reader.GetStringValue("name")),
+            [("@actorUserId", actorUserId)],
             cancellationToken);
 
         var users = await QueryAsync(
             """
-            SELECT id, COALESCE(full_name, username) AS label, COALESCE(role_label, '') AS role, department_id
-            FROM users
+            SELECT p.id, COALESCE(p.full_name, p.email, p.employee_code, p.id::text) AS label,
+                   COALESCE(p.job_title, '') AS role, p.department_id
+            FROM profiles p
             WHERE is_active = TRUE
+              AND (
+                p.id = @actorUserId
+                OR EXISTS (
+                  SELECT 1
+                  FROM user_roles ur
+                  JOIN role_permissions rp ON rp.role_id = ur.role_id
+                  JOIN permissions perm ON perm.id = rp.permission_id
+                  WHERE ur.user_id = @actorUserId
+                    AND perm.code = 'task.assign'
+                )
+              )
             ORDER BY label;
             """,
             reader => new TaskMemberOptionDto(
-                reader.GetInt64Value("id"),
+                reader.GetGuidValue("id"),
                 reader.GetStringValue("label"),
                 reader.GetStringValue("role"),
                 reader.GetNullableInt64("department_id")),
+            [("@actorUserId", actorUserId)],
             cancellationToken);
 
         var priorities = await QueryAsync(
@@ -141,48 +283,93 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             ]);
     }
 
-    private Task<IReadOnlyList<SubTaskDto>> GetSubtasksAsync(CancellationToken cancellationToken)
+    private Task<IReadOnlyList<SubTaskDto>> GetSubtasksAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT id, task_id, title, assignee_id, due_date, progress, done, sort_order, created_at, updated_at, completed_at
-            FROM subtasks
-            ORDER BY task_id, sort_order, id;
+            SELECT s.id, s.task_id, s.title, s.assignee_id, s.status::text AS status, s.due_date, s.progress, s.done, s.sort_order, s.created_at, s.updated_at, s.completed_at
+            FROM subtasks s
+            JOIN tasks t ON t.id = s.task_id
+            WHERE t.id IN (SELECT id FROM tasks)
+              AND (
+                EXISTS (
+                  SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                  WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director')
+                )
+                OR t.created_by = @actorUserId
+                OR t.reporter_id = @actorUserId
+                OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
+                OR (
+                  t.department_id IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code = 'manager')
+                  AND (
+                    EXISTS (SELECT 1 FROM profiles me WHERE me.id = @actorUserId AND me.department_id = t.department_id)
+                    OR EXISTS (SELECT 1 FROM user_department_scopes uds WHERE uds.user_id = @actorUserId AND uds.department_id = t.department_id)
+                  )
+                )
+              )
+              AND (
+                t.is_confidential = FALSE
+                OR EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director'))
+                OR t.created_by = @actorUserId
+                OR t.reporter_id = @actorUserId
+                OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
+              )
+            ORDER BY s.task_id, s.sort_order, s.id;
             """;
 
         return QueryAsync(sql, reader => new SubTaskDto(
-            reader.GetInt64Value("id"),
-            reader.GetInt64Value("task_id"),
+            reader.GetGuidValue("id"),
+            reader.GetGuidValue("task_id"),
             reader.GetStringValue("title"),
-            reader.GetNullableInt64("assignee_id"),
+            reader.GetNullableGuid("assignee_id"),
+            reader.GetStringValue("status"),
             reader.GetNullableDateOnly("due_date"),
             reader.GetInt32Value("progress"),
             reader.GetBooleanValue("done"),
             reader.GetDateTimeOffsetValue("created_at").ToUnixTimeMilliseconds(),
             reader.GetNullableDateTimeOffset("updated_at")?.ToUnixTimeMilliseconds(),
             reader.GetNullableDateTimeOffset("completed_at")?.ToUnixTimeMilliseconds(),
-            reader.GetInt32Value("sort_order")), cancellationToken);
+            reader.GetInt32Value("sort_order")),
+            [("@actorUserId", actorUserId)],
+            cancellationToken);
     }
 
-    private async Task<IReadOnlyList<(long TaskId, TaskExtensionRequestDto Request)>> GetExtensionRequestsAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<(Guid TaskId, TaskExtensionRequestDto Request)>> GetExtensionRequestsAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT id, task_id, requested_due_date, reason, status::text AS status, requested_by_user_id,
-                   requested_at, reviewed_by_user_id, reviewed_at, review_note
-            FROM task_extension_requests
-            ORDER BY requested_at DESC, id DESC;
+            SELECT e.id, e.task_id, e.requested_due_date, e.reason, e.status::text AS status, e.requested_by_user_id,
+                   e.requested_at, e.reviewed_by_user_id, e.reviewed_at, e.review_note
+            FROM task_extension_requests e
+            JOIN tasks t ON t.id = e.task_id
+            WHERE
+              EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director'))
+              OR t.created_by = @actorUserId
+              OR t.reporter_id = @actorUserId
+              OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
+              OR (
+                t.department_id IS NOT NULL
+                AND EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code = 'manager')
+                AND (
+                  EXISTS (SELECT 1 FROM profiles me WHERE me.id = @actorUserId AND me.department_id = t.department_id)
+                  OR EXISTS (SELECT 1 FROM user_department_scopes uds WHERE uds.user_id = @actorUserId AND uds.department_id = t.department_id)
+                )
+              )
+            ORDER BY e.requested_at DESC, e.id DESC;
             """;
 
         return await QueryAsync(sql, reader => (
-            reader.GetInt64Value("task_id"),
+            reader.GetGuidValue("task_id"),
             new TaskExtensionRequestDto(
-                reader.GetInt64Value("id"),
+                reader.GetGuidValue("id"),
                 reader.GetNullableDateOnly("requested_due_date") ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 reader.GetStringValue("reason"),
                 reader.GetStringValue("status"),
-                reader.GetNullableInt64("requested_by_user_id"),
+                reader.GetNullableGuid("requested_by_user_id"),
                 reader.GetDateTimeOffsetValue("requested_at"),
-                reader.GetNullableInt64("reviewed_by_user_id"),
+                reader.GetNullableGuid("reviewed_by_user_id"),
                 reader.GetNullableDateTimeOffset("reviewed_at"),
-                reader.GetNullableString("review_note"))), cancellationToken);
+                reader.GetNullableString("review_note"))),
+            [("@actorUserId", actorUserId)],
+            cancellationToken);
     }
 }

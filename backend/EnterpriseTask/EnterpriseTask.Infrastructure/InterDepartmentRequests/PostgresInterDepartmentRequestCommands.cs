@@ -24,13 +24,13 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
         var id = await ExecuteScalarAsync<Guid>(sql,
             [
                 ("@code", code),
-                ("@type", request.Type),
+                ("@type", request.Type.Trim().ToLowerInvariant()),
                 ("@title", request.Title.Trim()),
                 ("@description", request.Description.Trim()),
                 ("@requesterDepartmentId", request.RequesterDepartmentId),
                 ("@requesterUserId", request.RequesterUserId),
                 ("@targetDepartmentId", request.TargetDepartmentId),
-                ("@priority", request.Priority),
+                ("@priority", request.Priority.Trim().ToLowerInvariant()),
                 ("@dueDate", request.DueDate),
                 ("@formValues", JsonSerializer.Serialize(request.FormValues ?? [])),
                 ("@latestMessage", request.Note ?? request.Description),
@@ -82,7 +82,7 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
                 latest_message = 'Trạng thái phiếu đã được cập nhật.'
             WHERE id = @id;
             """,
-            [("@id", requestId), ("@status", request.Status)],
+            [("@id", requestId), ("@status", request.Status.Trim().ToLowerInvariant())],
             cancellationToken);
 
         return affected > 0;

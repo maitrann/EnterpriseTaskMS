@@ -1,15 +1,15 @@
 namespace EnterpriseTask.Application.Projects;
 
 public sealed record ProjectDto(
-    long Id,
+    Guid Id,
     string? Code,
     string Name,
     string? Description,
     long? DepartmentId,
-    long? OwnerId,
+    Guid? OwnerId,
     DateOnly? StartDate,
     DateOnly? EndDate,
     string? Status,
-    long? CreatedBy,
+    Guid? CreatedBy,
     DateTimeOffset CreatedAt,
     DateTimeOffset? UpdatedAt);

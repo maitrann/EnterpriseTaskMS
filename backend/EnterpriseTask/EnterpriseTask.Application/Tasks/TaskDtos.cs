@@ -3,10 +3,10 @@ using EnterpriseTask.Application.Common;
 namespace EnterpriseTask.Application.Tasks;
 
 public sealed record TaskDto(
-    long Id,
+    Guid Id,
     string Code,
-    long? ProjectId,
-    long? ParentTaskId,
+    Guid? ProjectId,
+    Guid? ParentTaskId,
     string Title,
     string? Description,
     string? TaskType,
@@ -15,10 +15,10 @@ public sealed record TaskDto(
     long? PriorityId,
     string? UrgencyLevel,
     string? SecurityLevel,
-    long? ReporterId,
-    long? AssigneeId,
-    long[] CollaboratorIds,
-    long[] WatcherIds,
+    Guid? ReporterId,
+    Guid? AssigneeId,
+    Guid[] CollaboratorIds,
+    Guid[] WatcherIds,
     DateOnly? StartDate,
     DateOnly? DueDate,
     int Progress,
@@ -36,10 +36,11 @@ public sealed record TaskDto(
     DateTimeOffset? UpdatedAt);
 
 public sealed record SubTaskDto(
-    long Id,
-    long TaskId,
+    Guid Id,
+    Guid TaskId,
     string Title,
-    long? AssigneeId,
+    Guid? AssigneeId,
+    string Status,
     DateOnly? DueDate,
     int Progress,
     bool Done,
@@ -49,26 +50,26 @@ public sealed record SubTaskDto(
     int Order);
 
 public sealed record TaskExtensionRequestDto(
-    long Id,
+    Guid Id,
     DateOnly RequestedDueDate,
     string Reason,
     string Status,
-    long? RequestedByUserId,
+    Guid? RequestedByUserId,
     DateTimeOffset RequestedAt,
-    long? ReviewedByUserId,
+    Guid? ReviewedByUserId,
     DateTimeOffset? ReviewedAt,
     string? ReviewNote);
 
 public sealed record TaskActivityDto(
-    long Id,
-    long TaskId,
-    long? UserId,
+    Guid Id,
+    Guid TaskId,
+    Guid? UserId,
     string? ActionType,
     string? OldValue,
     string? NewValue,
     DateTimeOffset CreatedAt);
 
-public sealed record TaskMemberOptionDto(long Id, string Label, string Role, long? DepartmentId);
+public sealed record TaskMemberOptionDto(Guid Id, string Label, string Role, long? DepartmentId);
 
 public sealed record TaskDepartmentOptionDto(long Id, string Label);
 

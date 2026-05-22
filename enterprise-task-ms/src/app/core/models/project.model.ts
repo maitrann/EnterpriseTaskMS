@@ -1,21 +1,3 @@
-export interface Project {
-  id: number;
-  code?: string;
-  name: string;
-  description?: string;
-  departmentId?: number;
-  ownerId?: number;
-  startDate?: Date;
-  endDate?: Date;
-  status?: string;
-  createdBy?: number;
-  createdAt: Date;
-  updatedAt?: Date;
-}
-export interface ProjectMember {
-  id: number;
-  projectId: number;
-  userId: number;
-  role?: string;
-  joinedAt: Date;
-}
+import { BigIntId, EntityId } from './common-id.model';
+export interface Project { id: EntityId; code?: string; name: string; description?: string; departmentId?: BigIntId; ownerId?: EntityId; startDate?: Date; endDate?: Date; status?: 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled' | string; createdBy?: EntityId; createdAt: Date; updatedAt?: Date; }
+export interface ProjectMember { projectId: EntityId; userId: EntityId; role?: string; joinedAt: Date; }

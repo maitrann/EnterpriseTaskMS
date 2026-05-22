@@ -14,11 +14,11 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
               r.id::text AS id, r.code, r.type::text AS type, r.title, r.description,
               COALESCE(rd.name, '') AS requester_department,
               COALESCE(r.requester_department_id::text, '') AS requester_department_id,
-              COALESCE(ru.full_name, ru.username, '') AS requester_name,
+              COALESCE(ru.full_name, ru.email, ru.employee_code, '') AS requester_name,
               r.requester_user_id,
               COALESCE(td.name, '') AS target_department,
               COALESCE(r.target_department_id::text, '') AS target_department_id,
-              COALESCE(ou.full_name, ou.username) AS owner,
+              COALESCE(ou.full_name, ou.email, ou.employee_code) AS owner,
               r.owner_id::text AS owner_id,
               r.priority::text AS priority,
               r.status::text AS status,
@@ -36,8 +36,8 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
             FROM inter_department_requests r
             LEFT JOIN departments rd ON rd.id = r.requester_department_id
             LEFT JOIN departments td ON td.id = r.target_department_id
-            LEFT JOIN users ru ON ru.id = r.requester_user_id
-            LEFT JOIN users ou ON ou.id = r.owner_id
+            LEFT JOIN profiles ru ON ru.id = r.requester_user_id
+            LEFT JOIN profiles ou ON ou.id = r.owner_id
             LEFT JOIN inter_request_sla_policies p ON p.key = r.sla_policy_key
             ORDER BY r.created_at DESC;
             """;
@@ -56,7 +56,7 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
                 reader.GetStringValue("requester_department"),
                 reader.GetStringValue("requester_department_id"),
                 reader.GetStringValue("requester_name"),
-                reader.GetNullableInt64("requester_user_id"),
+                reader.GetNullableGuid("requester_user_id"),
                 reader.GetStringValue("target_department"),
                 reader.GetStringValue("target_department_id"),
                 reader.GetNullableString("owner"),
@@ -104,9 +104,9 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
     public Task<IReadOnlyList<RequestOwnerRefDto>> GetOwnerOptionsAsync(CancellationToken cancellationToken)
     {
         const string sql = """
-            SELECT u.id::text AS id, COALESCE(u.full_name, u.username) AS name,
+            SELECT u.id::text AS id, COALESCE(u.full_name, u.email, u.employee_code, u.id::text) AS name,
                    d.id::text AS department_id, d.name AS department_name
-            FROM users u
+            FROM profiles u
             JOIN departments d ON d.id = u.department_id
             WHERE u.is_active = TRUE
             ORDER BY d.name, name;

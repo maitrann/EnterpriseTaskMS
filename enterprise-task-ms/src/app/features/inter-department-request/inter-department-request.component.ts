@@ -193,11 +193,11 @@ export class InterDepartmentRequestComponent {
   }
 
   updateTargetDepartment(departmentId: string) {
-    const department = this.departments.find((item) => item.id === departmentId);
+    const department = this.departments.find((item) => String(item.id) === departmentId);
 
     this.createForm.update((form) => ({
       ...form,
-      targetDepartmentId: department?.id ?? '',
+      targetDepartmentId: department ? String(department.id) : '',
       targetDepartment: department?.name ?? ''
     }));
   }
