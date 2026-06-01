@@ -101,10 +101,12 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
         ],
         cancellationToken)).ToList();
 
-        var visibleIds = requests.Select(request => request.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var messages = (await GetMessagesAsync(cancellationToken))
-            .Where(message => visibleIds.Contains(message.RequestId))
-            .ToList();
+        var visibleIds = requests
+            .Select(request => Guid.Parse(request.Id))
+            .ToArray();
+        var messages = visibleIds.Length == 0
+            ? []
+            : await GetMessagesAsync(visibleIds, cancellationToken);
 
         return requests
             .Select(request => request with
@@ -155,12 +157,13 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
             reader.GetInt32Value("warn_hours")), cancellationToken);
     }
 
-    private async Task<IReadOnlyList<(string RequestId, RequestMessageDto Message)>> GetMessagesAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<(string RequestId, RequestMessageDto Message)>> GetMessagesAsync(Guid[] requestIds, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT m.request_id::text AS request_id, m.id::text AS id, m.author_name,
                    m.author_role::text AS author_role, m.author_department, m.created_at, m.body
             FROM inter_request_messages m
+            WHERE m.request_id = ANY(@requestIds)
             ORDER BY m.created_at;
             """;
 
@@ -172,7 +175,9 @@ public sealed class PostgresInterDepartmentRequestQueries(ApplicationDbContext d
                 reader.GetStringValue("author_role"),
                 reader.GetNullableString("author_department"),
                 FormatDateTime(reader.GetDateTimeOffsetValue("created_at")),
-                reader.GetStringValue("body"))), cancellationToken);
+                reader.GetStringValue("body"))),
+            [("@requestIds", requestIds)],
+            cancellationToken);
     }
 
     private static Dictionary<string, string> ParseFormValues(string value)

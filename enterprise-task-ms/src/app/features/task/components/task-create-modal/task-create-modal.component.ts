@@ -7,6 +7,7 @@ import {
   TaskFormOptions,
   TaskMemberOption
 } from '../../../../core/models/task-form.model';
+import { EntityId } from '../../../../core/models/common-id.model';
 import {
   CustomSelectComponent,
   CustomSelectOption
@@ -17,9 +18,9 @@ type TaskDraft = {
   description: string;
   taskType: string;
   departmentId: number | null;
-  assigneeId: number | null;
-  collaboratorIds: number[];
-  watcherIds: number[];
+  assigneeId: EntityId | null;
+  collaboratorIds: EntityId[];
+  watcherIds: EntityId[];
   startDate: string;
   dueDate: string;
   priorityId: number;
@@ -28,7 +29,7 @@ type TaskDraft = {
   estimatedHours: number | null;
   attachmentNames: string[];
   tags: string[];
-  projectId: number | null;
+  projectId: EntityId | null;
   source: string;
 };
 
@@ -42,7 +43,7 @@ type TaskDraft = {
 export class TaskCreateModalComponent {
   @Input({ required: true }) taskCode!: string;
   @Input({ required: true }) formOptions!: TaskFormOptions;
-  @Input() projectOptions: Array<{ value: number; label: string }> = [];
+  @Input() projectOptions: Array<{ value: EntityId; label: string }> = [];
 
   @Output() close = new EventEmitter<void>();
   @Output() create = new EventEmitter<CreateTaskInput>();
@@ -231,7 +232,7 @@ export class TaskCreateModalComponent {
     }));
   }
 
-  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<number> {
+  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<EntityId> {
     return {
       value: user.id,
       label: user.label,

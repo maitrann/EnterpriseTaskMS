@@ -9,6 +9,7 @@ import {
   getTaskStatusLabel,
   TASK_STATUS_OPTIONS
 } from '../../../../core/constants/task-status.constants';
+import { EntityId } from '../../../../core/models/common-id.model';
 import { TaskFormOptions, TaskMemberOption } from '../../../../core/models/task-form.model';
 import { Task } from '../../../../core/models/task.model';
 import {
@@ -27,7 +28,7 @@ export class TaskEditModalComponent {
   private _task!: Task;
 
   @Input({ required: true }) formOptions!: TaskFormOptions;
-  @Input() projectOptions: Array<{ value: number; label: string }> = [];
+  @Input() projectOptions: Array<{ value: EntityId; label: string }> = [];
   @Input() canManageClosedTasks = false;
 
   @Input({ required: true }) set task(value: Task) {
@@ -287,11 +288,11 @@ export class TaskEditModalComponent {
     this.save.emit(this.task);
   }
 
-  private resolveUserName(userId?: number) {
+  private resolveUserName(userId?: EntityId) {
     return this.formOptions?.users.find((user) => user.id === userId)?.label;
   }
 
-  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<number> {
+  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<EntityId> {
     return {
       value: user.id,
       label: user.label,

@@ -7,32 +7,17 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
 {
     public async Task<TaskCreateResult> CreateAsync(Guid actorUserId, CreateTaskRequest request, CancellationToken cancellationToken)
     {
-        if (!await HasPermissionAsync(actorUserId, "task.create", cancellationToken))
-        {
-            return new TaskCreateResult(TaskCommandResult.Forbidden);
-        }
-
-        if (!await CanUseDepartmentAsync(actorUserId, request.DepartmentId, cancellationToken))
-        {
-            return new TaskCreateResult(TaskCommandResult.Forbidden);
-        }
-
-        if (request.AssigneeId is not null
-            && request.AssigneeId.Value != actorUserId
-            && !await HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
-        {
-            return new TaskCreateResult(TaskCommandResult.Forbidden);
-        }
-
+        var collaborators = NormalizeUserIds(request.CollaboratorIds);
+        var watchers = NormalizeUserIds(request.WatcherIds);
         var code = $"CV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
         const string sql = """
             INSERT INTO tasks (code, project_id, parent_task_id, title, description, task_type, department_id,
                                status_id, priority_id, reporter_id, created_by, start_date, due_date, progress,
-                               source, estimated_hours, actual_hours)
+                               source, urgency_level, security_level, is_confidential, estimated_hours, actual_hours)
             VALUES (@code, @projectId, @parentTaskId, @title, @description, @taskType, @departmentId,
                     COALESCE((SELECT id FROM task_statuses WHERE code = 'new'), 1),
                     @priorityId, @actorUserId, @actorUserId, @startDate, @dueDate, 0,
-                    @source, @estimatedHours, 0)
+                    @source, @urgencyLevel, @securityLevel, @isConfidential, @estimatedHours, 0)
             RETURNING id;
             """;
 
@@ -50,20 +35,31 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
                 ("@startDate", request.StartDate),
                 ("@dueDate", request.DueDate),
                 ("@source", request.Source?.Trim()),
+                ("@urgencyLevel", request.UrgencyLevel?.Trim()),
+                ("@securityLevel", request.SecurityLevel?.Trim()),
+                ("@isConfidential", IsConfidential(request.SecurityLevel)),
                 ("@estimatedHours", request.EstimatedHours)
             ],
             cancellationToken);
 
         if (request.AssigneeId is not null)
         {
-            await ExecuteAsync(
-                """
-                INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
-                VALUES (@taskId, @userId, 'assignee', @actorUserId)
-                ON CONFLICT DO NOTHING;
-                """,
-                [("@taskId", taskId), ("@userId", request.AssigneeId.Value), ("@actorUserId", actorUserId)],
-                cancellationToken);
+            await AddTaskAssignmentAsync(taskId, request.AssigneeId.Value, "assignee", actorUserId, cancellationToken);
+        }
+
+        foreach (var userId in collaborators)
+        {
+            await AddTaskAssignmentAsync(taskId, userId, "co_assignee", actorUserId, cancellationToken);
+        }
+
+        foreach (var userId in watchers)
+        {
+            await AddTaskAssignmentAsync(taskId, userId, "watcher", actorUserId, cancellationToken);
+        }
+
+        foreach (var tag in NormalizeTags(request.Tags))
+        {
+            await AddTaskTagAsync(taskId, tag, cancellationToken);
         }
 
         return new TaskCreateResult(TaskCommandResult.Success, taskId);
@@ -71,17 +67,6 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
 
     public async Task<TaskCommandResult> UpdateStatusAsync(Guid actorUserId, Guid taskId, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
-        var access = await GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
-        if (!access.Exists)
-        {
-            return TaskCommandResult.NotFound;
-        }
-
-        if (!access.CanAccess || !access.HasPermission)
-        {
-            return TaskCommandResult.Forbidden;
-        }
-
         var affected = await ExecuteAsync(
             "UPDATE tasks SET status_id = @statusId, updated_at = now() WHERE id = @taskId;",
             [("@statusId", request.StatusId), ("@taskId", taskId)],
@@ -235,38 +220,65 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext) : Postg
             cancellationToken);
     }
 
-    private async Task<bool> CanUseDepartmentAsync(Guid actorUserId, long? departmentId, CancellationToken cancellationToken)
+    private async Task AddTaskAssignmentAsync(
+        Guid taskId,
+        Guid userId,
+        string assignmentType,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
     {
-        if (departmentId is null)
-        {
-            return true;
-        }
+        await ExecuteAsync(
+            """
+            INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
+            VALUES (@taskId, @userId, @assignmentType::task_assignment_type, @actorUserId)
+            ON CONFLICT DO NOTHING;
+            """,
+            [
+                ("@taskId", taskId),
+                ("@userId", userId),
+                ("@assignmentType", assignmentType),
+                ("@actorUserId", actorUserId)
+            ],
+            cancellationToken);
+    }
 
+    private async Task AddTaskTagAsync(Guid taskId, string tagName, CancellationToken cancellationToken)
+    {
         const string sql = """
-            SELECT EXISTS (
-                SELECT 1
-                FROM user_roles ur
-                JOIN roles r ON r.id = ur.role_id
-                WHERE ur.user_id = @actorUserId
-                  AND r.code IN ('admin', 'director')
+            WITH inserted_tag AS (
+                INSERT INTO tags (name)
+                VALUES (@tagName)
+                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING id
             )
-            OR EXISTS (
-                SELECT 1
-                FROM profiles p
-                WHERE p.id = @actorUserId
-                  AND p.department_id = @departmentId
-            )
-            OR EXISTS (
-                SELECT 1
-                FROM user_department_scopes uds
-                WHERE uds.user_id = @actorUserId
-                  AND uds.department_id = @departmentId
-            );
+            INSERT INTO task_tags (task_id, tag_id)
+            SELECT @taskId, id FROM inserted_tag
+            ON CONFLICT DO NOTHING;
             """;
 
-        return await ExecuteScalarAsync<bool>(sql,
-            [("@actorUserId", actorUserId), ("@departmentId", departmentId.Value)],
-            cancellationToken);
+        await ExecuteAsync(sql, [("@taskId", taskId), ("@tagName", tagName)], cancellationToken);
+    }
+
+    private static Guid[] NormalizeUserIds(Guid[]? userIds)
+    {
+        return (userIds ?? [])
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static string[] NormalizeTags(string[]? tags)
+    {
+        return (tags ?? [])
+            .Select(tag => tag.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool IsConfidential(string? securityLevel)
+    {
+        return securityLevel?.Trim().Equals("internal", StringComparison.OrdinalIgnoreCase) == false;
     }
 
     private async Task<TaskAccessRow> GetTaskAccessAsync(Guid actorUserId, Guid taskId, string permissionCode, CancellationToken cancellationToken)

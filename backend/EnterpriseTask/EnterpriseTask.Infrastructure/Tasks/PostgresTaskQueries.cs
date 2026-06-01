@@ -115,8 +115,13 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             [("@actorUserId", actorUserId)],
             cancellationToken)).ToList();
 
-        var subtasks = await GetSubtasksAsync(actorUserId, cancellationToken);
-        var extensions = await GetExtensionRequestsAsync(actorUserId, cancellationToken);
+        var visibleTaskIds = tasks.Select(task => task.Id).ToArray();
+        var subtasks = visibleTaskIds.Length == 0
+            ? []
+            : await GetSubtasksAsync(visibleTaskIds, cancellationToken);
+        var extensions = visibleTaskIds.Length == 0
+            ? []
+            : await GetExtensionRequestsAsync(visibleTaskIds, cancellationToken);
 
         return tasks
             .Select(task => task with
@@ -283,37 +288,12 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             ]);
     }
 
-    private Task<IReadOnlyList<SubTaskDto>> GetSubtasksAsync(Guid actorUserId, CancellationToken cancellationToken)
+    private Task<IReadOnlyList<SubTaskDto>> GetSubtasksAsync(Guid[] taskIds, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT s.id, s.task_id, s.title, s.assignee_id, s.status::text AS status, s.due_date, s.progress, s.done, s.sort_order, s.created_at, s.updated_at, s.completed_at
             FROM subtasks s
-            JOIN tasks t ON t.id = s.task_id
-            WHERE t.id IN (SELECT id FROM tasks)
-              AND (
-                EXISTS (
-                  SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-                  WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director')
-                )
-                OR t.created_by = @actorUserId
-                OR t.reporter_id = @actorUserId
-                OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
-                OR (
-                  t.department_id IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code = 'manager')
-                  AND (
-                    EXISTS (SELECT 1 FROM profiles me WHERE me.id = @actorUserId AND me.department_id = t.department_id)
-                    OR EXISTS (SELECT 1 FROM user_department_scopes uds WHERE uds.user_id = @actorUserId AND uds.department_id = t.department_id)
-                  )
-                )
-              )
-              AND (
-                t.is_confidential = FALSE
-                OR EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director'))
-                OR t.created_by = @actorUserId
-                OR t.reporter_id = @actorUserId
-                OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
-              )
+            WHERE s.task_id = ANY(@taskIds)
             ORDER BY s.task_id, s.sort_order, s.id;
             """;
 
@@ -330,30 +310,17 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableDateTimeOffset("updated_at")?.ToUnixTimeMilliseconds(),
             reader.GetNullableDateTimeOffset("completed_at")?.ToUnixTimeMilliseconds(),
             reader.GetInt32Value("sort_order")),
-            [("@actorUserId", actorUserId)],
+            [("@taskIds", taskIds)],
             cancellationToken);
     }
 
-    private async Task<IReadOnlyList<(Guid TaskId, TaskExtensionRequestDto Request)>> GetExtensionRequestsAsync(Guid actorUserId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<(Guid TaskId, TaskExtensionRequestDto Request)>> GetExtensionRequestsAsync(Guid[] taskIds, CancellationToken cancellationToken)
     {
         const string sql = """
             SELECT e.id, e.task_id, e.requested_due_date, e.reason, e.status::text AS status, e.requested_by_user_id,
                    e.requested_at, e.reviewed_by_user_id, e.reviewed_at, e.review_note
             FROM task_extension_requests e
-            JOIN tasks t ON t.id = e.task_id
-            WHERE
-              EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code IN ('admin', 'director'))
-              OR t.created_by = @actorUserId
-              OR t.reporter_id = @actorUserId
-              OR EXISTS (SELECT 1 FROM task_assignments ta WHERE ta.task_id = t.id AND ta.user_id = @actorUserId)
-              OR (
-                t.department_id IS NOT NULL
-                AND EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = @actorUserId AND r.code = 'manager')
-                AND (
-                  EXISTS (SELECT 1 FROM profiles me WHERE me.id = @actorUserId AND me.department_id = t.department_id)
-                  OR EXISTS (SELECT 1 FROM user_department_scopes uds WHERE uds.user_id = @actorUserId AND uds.department_id = t.department_id)
-                )
-              )
+            WHERE e.task_id = ANY(@taskIds)
             ORDER BY e.requested_at DESC, e.id DESC;
             """;
 
@@ -369,7 +336,7 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
                 reader.GetNullableGuid("reviewed_by_user_id"),
                 reader.GetNullableDateTimeOffset("reviewed_at"),
                 reader.GetNullableString("review_note"))),
-            [("@actorUserId", actorUserId)],
+            [("@taskIds", taskIds)],
             cancellationToken);
     }
 }

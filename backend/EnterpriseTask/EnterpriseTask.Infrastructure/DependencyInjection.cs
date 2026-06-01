@@ -41,10 +41,15 @@ public static class DependencyInjection
 
         services.AddScoped<ITaskQueries, PostgresTaskQueries>();
         services.AddScoped<ITaskCommands, PostgresTaskCommands>();
+        services.AddScoped<ITaskPolicyQueries, PostgresTaskPolicyQueries>();
+        services.AddScoped<CreateTaskHandler>();
+        services.AddScoped<UpdateTaskStatusHandler>();
         services.AddScoped<IDepartmentQueries, PostgresDepartmentQueries>();
         services.AddScoped<IProjectQueries, PostgresProjectQueries>();
         services.AddScoped<IInterDepartmentRequestQueries, PostgresInterDepartmentRequestQueries>();
         services.AddScoped<IInterDepartmentRequestCommands, PostgresInterDepartmentRequestCommands>();
+        services.AddScoped<IInterDepartmentRequestPolicyQueries, PostgresInterDepartmentRequestPolicyQueries>();
+        services.AddScoped<AssignInterRequestOwnerHandler>();
         services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 

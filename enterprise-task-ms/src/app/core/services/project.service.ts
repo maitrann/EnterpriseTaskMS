@@ -3,6 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../constants/app.constants';
+import { EntityId } from '../models/common-id.model';
 import { Project } from '../models/project.model';
 import { Task } from '../models/task.model';
 import { TaskService } from './task.service';
@@ -116,12 +117,12 @@ export class ProjectService {
     }));
   }
 
-  getOverview(projectId: number) {
+  getOverview(projectId: EntityId) {
     const project = this.projects().find((item) => item.id === projectId);
     return project ? this.createOverview(project, this.taskService.tasks()) : null;
   }
 
-  getTasksByProjectId(projectId: number) {
+  getTasksByProjectId(projectId: EntityId) {
     return this.taskService.tasks().filter((task) => task.projectId === projectId);
   }
 

@@ -72,7 +72,10 @@ export class TaskBoardComponent {
     { value: 4, label: 'Khẩn cấp' }
   ];
   readonly nextTaskCode = computed(() => {
-    const nextId = this.tasks().length ? Math.max(...this.tasks().map((task) => task.id)) + 1 : 1;
+    const numericIds = this.tasks()
+      .map((task) => task.id)
+      .filter((id): id is number => typeof id === 'number');
+    const nextId = numericIds.length ? Math.max(...numericIds) + 1 : this.tasks().length + 1;
     return `CV-${String(nextId).padStart(4, '0')}`;
   });
 

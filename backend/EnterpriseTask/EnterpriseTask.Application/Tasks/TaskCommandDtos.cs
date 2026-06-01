@@ -15,8 +15,8 @@ public sealed record CreateTaskRequest(
     string? Source,
     string? UrgencyLevel,
     string? SecurityLevel,
-    long[]? CollaboratorIds,
-    long[]? WatcherIds,
+    Guid[]? CollaboratorIds,
+    Guid[]? WatcherIds,
     string[]? Tags);
 
 public sealed record UpdateTaskRequest(
@@ -37,8 +37,8 @@ public sealed record UpdateTaskRequest(
     string? Source,
     string? UrgencyLevel,
     string? SecurityLevel,
-    long[]? CollaboratorIds,
-    long[]? WatcherIds,
+    Guid[]? CollaboratorIds,
+    Guid[]? WatcherIds,
     string[]? Tags);
 
 public sealed record UpdateTaskStatusRequest(long StatusId, string? Note);

@@ -8,6 +8,18 @@ namespace EnterpriseTask.Infrastructure.InterDepartmentRequests;
 public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext dbContext)
     : PostgresCommandBase(dbContext), IInterDepartmentRequestCommands
 {
+    private static readonly HashSet<string> RequestStatuses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "new",
+        "received",
+        "processing",
+        "waiting-requester",
+        "waiting-target",
+        "done",
+        "closed",
+        "rejected"
+    };
+
     public async Task<InterDepartmentRequestCreateResult> CreateAsync(UserScope scope, CreateInterDepartmentRequestCommand request, CancellationToken cancellationToken)
     {
         var code = $"IR-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
@@ -61,6 +73,11 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             return InterDepartmentRequestCommandResult.Forbidden;
         }
 
+        if (access.Status != "new")
+        {
+            return InterDepartmentRequestCommandResult.InvalidState;
+        }
+
         var affected = await ExecuteAsync(
             """
             UPDATE inter_department_requests
@@ -76,17 +93,6 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
 
     public async Task<InterDepartmentRequestCommandResult> AssignOwnerAsync(UserScope scope, Guid requestId, AssignOwnerRequest request, CancellationToken cancellationToken)
     {
-        var access = await GetRequestAccessAsync(scope, requestId, cancellationToken);
-        if (!access.Exists)
-        {
-            return InterDepartmentRequestCommandResult.NotFound;
-        }
-
-        if (!access.CanCoordinate)
-        {
-            return InterDepartmentRequestCommandResult.Forbidden;
-        }
-
         var affected = await ExecuteAsync(
             """
             UPDATE inter_department_requests
@@ -108,9 +114,20 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             return InterDepartmentRequestCommandResult.NotFound;
         }
 
-        if (!access.CanAccess)
+        if (!access.CanCoordinate)
         {
             return InterDepartmentRequestCommandResult.Forbidden;
+        }
+
+        var nextStatus = request.Status.Trim().ToLowerInvariant();
+        if (!RequestStatuses.Contains(nextStatus) || nextStatus == "closed")
+        {
+            return InterDepartmentRequestCommandResult.InvalidState;
+        }
+
+        if (!IsAllowedTransition(access.Status, nextStatus))
+        {
+            return InterDepartmentRequestCommandResult.InvalidState;
         }
 
         var affected = await ExecuteAsync(
@@ -122,7 +139,7 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
                 latest_message = 'Trạng thái phiếu đã được cập nhật.'
             WHERE id = @id;
             """,
-            [("@id", requestId), ("@status", request.Status.Trim().ToLowerInvariant())],
+            [("@id", requestId), ("@status", nextStatus)],
             cancellationToken);
 
         return affected > 0 ? InterDepartmentRequestCommandResult.Success : InterDepartmentRequestCommandResult.NotFound;
@@ -187,6 +204,11 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             return InterDepartmentRequestCommandResult.Forbidden;
         }
 
+        if (access.Status != "done")
+        {
+            return InterDepartmentRequestCommandResult.InvalidState;
+        }
+
         var affected = await ExecuteAsync(
             """
             UPDATE inter_department_requests
@@ -209,7 +231,7 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
 
         if (!exists)
         {
-            return new RequestAccessRow(false, false, false, null);
+            return new RequestAccessRow(false, false, false, null, null, null);
         }
 
         var canAccess = await ExecuteScalarAsync<bool>(
@@ -264,14 +286,27 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             cancellationToken);
 
         var requesterUserIdValue = await ExecuteScalarAsync<string>(
-            "SELECT requester_user_id FROM inter_department_requests WHERE id = @id;",
+            "SELECT requester_user_id::text FROM inter_department_requests WHERE id = @id;",
             [("@id", requestId)],
             cancellationToken);
         var requesterUserId = Guid.TryParse(requesterUserIdValue, out var parsedRequesterUserId)
             ? parsedRequesterUserId
             : (Guid?)null;
 
-        return new RequestAccessRow(true, canAccess, canCoordinate, requesterUserId);
+        var targetDepartmentIdValue = await ExecuteScalarAsync<string>(
+            "SELECT target_department_id::text FROM inter_department_requests WHERE id = @id;",
+            [("@id", requestId)],
+            cancellationToken);
+        var targetDepartmentId = long.TryParse(targetDepartmentIdValue, out var parsedTargetDepartmentId)
+            ? parsedTargetDepartmentId
+            : (long?)null;
+
+        var status = await ExecuteScalarAsync<string>(
+            "SELECT status::text FROM inter_department_requests WHERE id = @id;",
+            [("@id", requestId)],
+            cancellationToken);
+
+        return new RequestAccessRow(true, canAccess, canCoordinate, requesterUserId, targetDepartmentId, status);
     }
 
     private static IReadOnlyList<(string Name, object? Value)> CreateScopeParameters(UserScope scope, Guid requestId)
@@ -312,6 +347,20 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             cancellationToken);
     }
 
+    private static bool IsAllowedTransition(string? currentStatus, string nextStatus)
+    {
+        return currentStatus switch
+        {
+            "new" => nextStatus is "received" or "rejected",
+            "received" => nextStatus is "processing" or "rejected",
+            "processing" => nextStatus is "waiting-requester" or "waiting-target" or "done" or "rejected",
+            "waiting-requester" => nextStatus is "processing" or "rejected",
+            "waiting-target" => nextStatus is "processing" or "done" or "rejected",
+            "done" or "closed" or "rejected" => false,
+            _ => false
+        };
+    }
+
     private async Task<string> GetActorNameAsync(Guid actorUserId, CancellationToken cancellationToken)
     {
         const string sql = "SELECT COALESCE(full_name, email, employee_code, id::text) FROM profiles WHERE id = @id;";
@@ -330,5 +379,11 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
         return await ExecuteScalarAsync<string>(sql, [("@id", actorUserId)], cancellationToken);
     }
 
-    private sealed record RequestAccessRow(bool Exists, bool CanAccess, bool CanCoordinate, Guid? RequesterUserId);
+    private sealed record RequestAccessRow(
+        bool Exists,
+        bool CanAccess,
+        bool CanCoordinate,
+        Guid? RequesterUserId,
+        long? TargetDepartmentId,
+        string? Status);
 }
