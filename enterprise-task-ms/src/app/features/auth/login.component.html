@@ -3,22 +3,22 @@
     <p class="eyebrow">Enterprise Task MS</p>
     <h1>Đăng nhập để kiểm thử workflow quản lý công việc bằng dữ liệu mẫu</h1>
     <p class="description">
-      Luong hien tai dung 1 tai khoan admin mock de minh test giao dien login, logout va phan quyen
-      truoc khi noi backend C#.
+      Luồng hiện tại dùng một tài khoản admin mock để kiểm thử giao diện login, logout và phân quyền
+      trước khi nối backend C#.
     </p>
 
     <div class="credential-card">
-      <span class="card-label">Tai khoan demo</span>
+      <span class="card-label">Tài khoản demo</span>
       <strong>{{ demoCredentials.email }}</strong>
       <span>Mật khẩu: {{ demoCredentials.password }}</span>
-      <button class="secondary-btn" type="button" (click)="fillDemoCredentials()">Dung tai khoan mau</button>
+      <button class="secondary-btn" type="button" (click)="fillDemoCredentials()">Dùng tài khoản mẫu</button>
     </div>
   </section>
 
   <section class="auth-panel auth-form-panel">
     <div class="form-head">
       <h2>Đăng nhập hệ thống</h2>
-      <p>Nhap thong tin tai khoan admin mock de vao dashboard tong quan sau do dieu huong tiep.</p>
+      <p>Nhập thông tin tài khoản admin mock để vào dashboard tổng quan, sau đó điều hướng tiếp.</p>
     </div>
 
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
