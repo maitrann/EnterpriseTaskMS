@@ -11,6 +11,7 @@ namespace EnterpriseTask.Api.Controllers;
 public sealed class InterDepartmentRequestsController(
     IInterDepartmentRequestQueries requestQueries,
     IInterDepartmentRequestCommands requestCommands,
+    AssignInterRequestOwnerHandler assignOwnerHandler,
     ICurrentUserContext currentUser) : ControllerBase
 {
     [HttpGet]
@@ -53,7 +54,7 @@ public sealed class InterDepartmentRequestsController(
     [HttpPost("{id:guid}/assign-owner")]
     public async Task<IActionResult> AssignOwner(Guid id, AssignOwnerRequest request, CancellationToken cancellationToken)
     {
-        return ToActionResult(await requestCommands.AssignOwnerAsync(currentUser.GetRequiredScope(), id, request, cancellationToken));
+        return ToActionResult(await assignOwnerHandler.HandleAsync(currentUser.GetRequiredScope(), id, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/status")]
@@ -81,6 +82,7 @@ public sealed class InterDepartmentRequestsController(
         {
             InterDepartmentRequestCommandResult.Success => NoContent(),
             InterDepartmentRequestCommandResult.Forbidden => Forbid(),
+            InterDepartmentRequestCommandResult.InvalidState => Conflict(),
             _ => NotFound()
         };
     }
@@ -92,6 +94,7 @@ public sealed class InterDepartmentRequestsController(
             InterDepartmentRequestCommandResult.Success when created => CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id }),
             InterDepartmentRequestCommandResult.Success => Ok(new { id = result.Id }),
             InterDepartmentRequestCommandResult.Forbidden => Forbid(),
+            InterDepartmentRequestCommandResult.InvalidState => Conflict(),
             _ => NotFound()
         };
     }

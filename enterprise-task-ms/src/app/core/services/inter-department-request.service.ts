@@ -143,7 +143,6 @@ export class InterDepartmentRequestService {
         title: payload.title,
         description: payload.description,
         requesterDepartmentId: Number(payload.requesterDepartmentId),
-        requesterUserId: payload.requesterUserId,
         targetDepartmentId: Number(payload.targetDepartmentId),
         priority: payload.priority,
         dueDate: payload.dueDate,
@@ -256,7 +255,7 @@ export class InterDepartmentRequestService {
 
     void firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/assign-owner`, {
-        ownerId: Number(ownerId)
+        ownerId
       })
     )
       .then(() => this.loadFromApi())
@@ -404,10 +403,6 @@ export class InterDepartmentRequestService {
 
     void firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests/${payload.requestId}/messages`, {
-        authorUserId: payload.actor.id,
-        authorName: payload.actor.fullName ?? payload.actor.username,
-        authorRole: isRequester ? 'requester' : 'processor',
-        authorDepartment: payload.actor.departmentName ?? '',
         body: payload.body.trim()
       })
     )

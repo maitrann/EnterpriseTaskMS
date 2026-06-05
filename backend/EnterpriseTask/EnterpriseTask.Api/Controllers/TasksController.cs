@@ -11,6 +11,8 @@ namespace EnterpriseTask.Api.Controllers;
 public sealed class TasksController(
     ITaskQueries taskQueries,
     ITaskCommands taskCommands,
+    CreateTaskHandler createTaskHandler,
+    UpdateTaskStatusHandler updateTaskStatusHandler,
     ICurrentUserContext currentUser) : ControllerBase
 {
     [HttpGet]
@@ -45,7 +47,7 @@ public sealed class TasksController(
             return Unauthorized();
         }
 
-        var result = await taskCommands.CreateAsync(actorUserId, request, cancellationToken);
+        var result = await createTaskHandler.HandleAsync(actorUserId, request, cancellationToken);
         return result.Result == TaskCommandResult.Forbidden
             ? Forbid()
             : CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id });
@@ -70,7 +72,7 @@ public sealed class TasksController(
             return Unauthorized();
         }
 
-        return ToActionResult(await taskCommands.UpdateStatusAsync(actorUserId, id, request, cancellationToken));
+        return ToActionResult(await updateTaskStatusHandler.HandleAsync(actorUserId, id, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/assignee")]

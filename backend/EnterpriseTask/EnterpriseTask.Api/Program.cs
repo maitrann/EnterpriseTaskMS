@@ -14,20 +14,28 @@ builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
+
+var jwtSecret = GetRequiredConfiguration(builder.Configuration, "Jwt:Secret");
+var jwtIssuer = GetRequiredConfiguration(builder.Configuration, "Jwt:Issuer");
+var jwtAudience = GetRequiredConfiguration(builder.Configuration, "Jwt:Audience");
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+{
+    throw new InvalidOperationException("Jwt:Secret must be at least 32 UTF-8 bytes for HMAC-SHA256 signing.");
+}
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var secret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateIssuerSigningKey = true,
             ValidateLifetime = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.FromMinutes(2)
         };
     });
@@ -100,3 +108,14 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string GetRequiredConfiguration(IConfiguration configuration, string key)
+{
+    var value = configuration[key];
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        throw new InvalidOperationException($"Missing required configuration '{key}'.");
+    }
+
+    return value;
+}

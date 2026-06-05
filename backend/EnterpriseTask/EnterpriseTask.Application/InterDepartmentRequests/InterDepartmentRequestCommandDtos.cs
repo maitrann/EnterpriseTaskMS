@@ -5,7 +5,6 @@ public sealed record CreateInterDepartmentRequestCommand(
     string Title,
     string Description,
     long? RequesterDepartmentId,
-    Guid? RequesterUserId,
     long? TargetDepartmentId,
     string Priority,
     DateOnly DueDate,
@@ -16,13 +15,14 @@ public sealed record AssignOwnerRequest(Guid OwnerId);
 
 public sealed record UpdateRequestStatusRequest(string Status);
 
-public sealed record AddRequestMessageRequest(Guid? AuthorUserId, string AuthorName, string AuthorRole, string? AuthorDepartment, string Body);
+public sealed record AddRequestMessageRequest(string Body);
 
 public enum InterDepartmentRequestCommandResult
 {
     Success,
     NotFound,
-    Forbidden
+    Forbidden,
+    InvalidState
 }
 
 public sealed record InterDepartmentRequestCreateResult(InterDepartmentRequestCommandResult Result, Guid? Id = null);

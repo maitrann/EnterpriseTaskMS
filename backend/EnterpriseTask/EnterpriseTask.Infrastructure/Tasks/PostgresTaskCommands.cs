@@ -26,15 +26,17 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
 
+        var collaborators = NormalizeUserIds(request.CollaboratorIds);
+        var watchers = NormalizeUserIds(request.WatcherIds);
         var code = $"CV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
         const string sql = """
             INSERT INTO tasks (code, project_id, parent_task_id, title, description, task_type, department_id,
                                status_id, priority_id, reporter_id, created_by, start_date, due_date, progress,
-                               source, estimated_hours, actual_hours)
+                               source, urgency_level, security_level, is_confidential, estimated_hours, actual_hours)
             VALUES (@code, @projectId, @parentTaskId, @title, @description, @taskType, @departmentId,
                     COALESCE((SELECT id FROM task_statuses WHERE code = 'new'), 1),
                     @priorityId, @actorUserId, @actorUserId, @startDate, @dueDate, 0,
-                    @source, @estimatedHours, 0)
+                    @source, @urgencyLevel, @securityLevel, @isConfidential, @estimatedHours, 0)
             RETURNING id;
             """;
 
@@ -52,25 +54,32 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
                 ("@startDate", request.StartDate),
                 ("@dueDate", request.DueDate),
                 ("@source", request.Source?.Trim()),
+                ("@urgencyLevel", request.UrgencyLevel?.Trim()),
+                ("@securityLevel", request.SecurityLevel?.Trim()),
+                ("@isConfidential", IsConfidential(request.SecurityLevel)),
                 ("@estimatedHours", request.EstimatedHours)
             ],
             cancellationToken);
 
         if (request.AssigneeId is not null)
         {
-            await ExecuteAsync(
-                """
-                INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
-                VALUES (@taskId, @userId, 'assignee', @actorUserId)
-                ON CONFLICT DO NOTHING;
-                """,
-                [("@taskId", taskId), ("@userId", request.AssigneeId.Value), ("@actorUserId", actorUserId)],
-                cancellationToken);
+            await AddTaskAssignmentAsync(taskId, request.AssigneeId.Value, "assignee", actorUserId, cancellationToken);
         }
 
-        await ReplaceAssignmentsAsync(taskId, request.CollaboratorIds, "co_assignee", actorUserId, cancellationToken);
-        await ReplaceAssignmentsAsync(taskId, request.WatcherIds, "watcher", actorUserId, cancellationToken);
-        await ReplaceTagsAsync(taskId, request.Tags, cancellationToken);
+        foreach (var userId in collaborators)
+        {
+            await AddTaskAssignmentAsync(taskId, userId, "co_assignee", actorUserId, cancellationToken);
+        }
+
+        foreach (var userId in watchers)
+        {
+            await AddTaskAssignmentAsync(taskId, userId, "watcher", actorUserId, cancellationToken);
+        }
+
+        foreach (var tag in NormalizeTags(request.Tags))
+        {
+            await AddTaskTagAsync(taskId, tag, cancellationToken);
+        }
 
         return new TaskCreateResult(TaskCommandResult.Success, taskId);
     }
@@ -109,11 +118,6 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         }
 
         var progress = TaskProgressPolicy.Normalize(request.Progress);
-        var currentStatusId = await GetTaskStatusIdAsync(taskId, cancellationToken);
-        if (!TaskWorkflowPolicy.CanTransition(currentStatusId, request.StatusId))
-        {
-            return TaskCommandResult.Forbidden;
-        }
 
         var affected = await ExecuteAsync(
             """
@@ -180,6 +184,12 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         }
 
         if (!access.CanAccess || !access.HasPermission)
+        {
+            return TaskCommandResult.Forbidden;
+        }
+
+        var currentStatusId = await GetTaskStatusIdAsync(taskId, cancellationToken);
+        if (!TaskWorkflowPolicy.CanTransition(currentStatusId, request.StatusId))
         {
             return TaskCommandResult.Forbidden;
         }
@@ -546,6 +556,67 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             """,
             [("@taskId", taskId), ("@userId", userId.Value), ("@assignmentType", assignmentType), ("@actorUserId", actorUserId)],
             cancellationToken);
+    }
+
+    private async Task AddTaskAssignmentAsync(
+        Guid taskId,
+        Guid userId,
+        string assignmentType,
+        Guid actorUserId,
+        CancellationToken cancellationToken)
+    {
+        await ExecuteAsync(
+            """
+            INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
+            VALUES (@taskId, @userId, @assignmentType::task_assignment_type, @actorUserId)
+            ON CONFLICT DO NOTHING;
+            """,
+            [
+                ("@taskId", taskId),
+                ("@userId", userId),
+                ("@assignmentType", assignmentType),
+                ("@actorUserId", actorUserId)
+            ],
+            cancellationToken);
+    }
+
+    private async Task AddTaskTagAsync(Guid taskId, string tagName, CancellationToken cancellationToken)
+    {
+        const string sql = """
+            WITH inserted_tag AS (
+                INSERT INTO tags (name)
+                VALUES (@tagName)
+                ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+                RETURNING id
+            )
+            INSERT INTO task_tags (task_id, tag_id)
+            SELECT @taskId, id FROM inserted_tag
+            ON CONFLICT DO NOTHING;
+            """;
+
+        await ExecuteAsync(sql, [("@taskId", taskId), ("@tagName", tagName)], cancellationToken);
+    }
+
+    private static Guid[] NormalizeUserIds(Guid[]? userIds)
+    {
+        return (userIds ?? [])
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToArray();
+    }
+
+    private static string[] NormalizeTags(string[]? tags)
+    {
+        return (tags ?? [])
+            .Select(tag => tag.Trim())
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static bool IsConfidential(string? securityLevel)
+    {
+        return securityLevel?.Trim().Equals("internal", StringComparison.OrdinalIgnoreCase) == false;
     }
 
     private async Task ReplaceAssignmentsAsync(

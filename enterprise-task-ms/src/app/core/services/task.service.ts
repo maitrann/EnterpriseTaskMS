@@ -1,4 +1,4 @@
-import { Injectable, computed } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 
 import {
   TASK_STATUS_IDS,
@@ -22,6 +22,10 @@ export type TaskActionResult = {
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
+  private readonly authService = inject(AuthService);
+  private readonly taskApi = inject(TaskApiClient);
+  private readonly taskState = inject(TaskStateStore);
+
   readonly tasks = this.taskState.tasks;
   readonly activities = this.taskState.activities;
   readonly formOptions = this.taskState.formOptions;
@@ -30,11 +34,7 @@ export class TaskService {
     this.tasks().filter((task) => !TASK_TERMINAL_STATUS_IDS.includes(task.statusId ?? -1))
   );
 
-  constructor(
-    private readonly authService: AuthService,
-    private readonly taskApi: TaskApiClient,
-    private readonly taskState: TaskStateStore
-  ) {
+  constructor() {
     void this.loadFromApi();
   }
 
@@ -473,14 +473,13 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/subtasks`, {
+      void this.taskApi
+        .createSubtask(taskId, {
           title,
           assigneeId: input.assigneeId,
           dueDate: this.toApiDate(input.dueDate),
           progress
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -547,15 +546,14 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.put(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+      void this.taskApi
+        .updateSubtask(taskId, subtaskId, {
           title,
           assigneeId: changes.assigneeId === undefined ? subtask.assigneeId : changes.assigneeId,
           dueDate: this.toApiDate(dueDate),
           progress,
           done: progress === 100
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -605,12 +603,11 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.put(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, {
+      void this.taskApi
+        .updateSubtask(taskId, subtaskId, {
           progress: nextDone ? 100 : 0,
           done: nextDone
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -649,7 +646,8 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(this.http.delete(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`))
+      void this.taskApi
+        .deleteSubtask(taskId, subtaskId)
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -765,12 +763,10 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/comments`, {
-          userId: this.authService.user()?.id ?? 1,
+      void this.taskApi
+        .addComment(taskId, {
           content: note
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -844,33 +840,6 @@ export class TaskService {
 
     this.recordTaskUpdateActivities(currentTask, updatedTask);
 
-    void firstValueFrom(
-      this.http.put(`${API_BASE_URL}/tasks/${updatedTask.id}`, {
-        title: updatedTask.title,
-        description: updatedTask.description,
-        taskType: updatedTask.taskType,
-        projectId: updatedTask.projectId,
-        parentTaskId: updatedTask.parentTaskId,
-        departmentId: updatedTask.departmentId,
-        assigneeId: updatedTask.assigneeId,
-        statusId: updatedTask.statusId,
-        priorityId: updatedTask.priorityId,
-        startDate: this.toApiDate(updatedTask.startDate),
-        dueDate: this.toApiDate(updatedTask.dueDate),
-        progress: updatedTask.progress,
-        estimatedHours: updatedTask.estimatedHours,
-        actualHours: updatedTask.actualHours,
-        source: updatedTask.source,
-        urgencyLevel: updatedTask.urgencyLevel,
-        securityLevel: updatedTask.securityLevel,
-        collaboratorIds: updatedTask.collaboratorIds ?? [],
-        watcherIds: updatedTask.watcherIds ?? [],
-        tags: updatedTask.tags ?? []
-      })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
-
     return {
       success: true
     };
@@ -912,12 +881,11 @@ export class TaskService {
     this.recordActivity(task.id, actionType, oldValue, newValue);
 
     if (task.statusId !== updatedTask.statusId && updatedTask.statusId) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${task.id}/status`, {
+      void this.taskApi
+        .updateStatus(task.id, {
           statusId: updatedTask.statusId,
           note: newValue
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -971,16 +939,6 @@ export class TaskService {
     this.tasks.update((tasks) => [clonedTask, ...tasks]);
     this.recordActivity(task.id, options.actionType, task.code, clonedTask.code);
     this.recordActivity(clonedTask.id, 'CREATE_TASK', undefined, clonedTask.title);
-
-    void firstValueFrom(
-      this.http.post(`${API_BASE_URL}/tasks/${task.id}/duplicate`, {
-        title: options.title,
-        resetPeople: !!options.resetPeople,
-        resetAttachments: !!options.resetAttachments
-      })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
 
     return {
       success: true,
@@ -1095,6 +1053,14 @@ export class TaskService {
       createdAt: now,
       updatedAt: now
     }));
+  }
+
+  private nextLocalTaskId() {
+    const numericIds = this.tasks()
+      .map((task) => task.id)
+      .filter((id): id is number => typeof id === 'number');
+
+    return numericIds.length ? Math.max(...numericIds) + 1 : Date.now();
   }
 
   private createEmptyFormOptions(): TaskFormOptions {
