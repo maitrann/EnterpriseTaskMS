@@ -1,5 +1,5 @@
 export type Uuid = string;
 export type BigIntId = number;
 
-// Keep FE compile stable while backend migration is in progress.
-export type EntityId = number;
+// Backend UUID migration is in progress while local mock data still uses numeric ids.
+export type EntityId = Uuid | number;

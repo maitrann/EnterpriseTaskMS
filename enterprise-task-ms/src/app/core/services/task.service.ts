@@ -1,19 +1,18 @@
-import { HttpClient } from '@angular/common/http';
-import { Inject, Injectable, computed, signal } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { Injectable, computed } from '@angular/core';
 
-import { API_BASE_URL } from '../constants/app.constants';
 import {
   TASK_STATUS_IDS,
   TASK_TERMINAL_STATUS_IDS,
   getTaskStatusLabel
 } from '../constants/task-status.constants';
-import { TASK_DATA_SOURCE, TaskDataSource } from '../data-sources/task.datasource';
+import { EntityId } from '../models/common-id.model';
 import { CreateTaskInput, TaskFormOptions } from '../models/task-form.model';
 import { TaskActivity } from '../models/task-activity.model';
 import { SubTask, SubTaskInput } from '../models/subtask.model';
 import { Task, TaskExtensionRequest } from '../models/task.model';
 import { AuthService } from './auth.service';
+import { TaskApiClient } from './task-api.client';
+import { TaskStateStore } from './task-state.store';
 
 export type TaskActionResult = {
   success: boolean;
@@ -23,32 +22,25 @@ export type TaskActionResult = {
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
-  readonly tasks = signal<Task[]>([]);
-  readonly activities = signal<TaskActivity[]>([]);
-  readonly formOptions = signal<TaskFormOptions>(this.createEmptyFormOptions());
+  readonly tasks = this.taskState.tasks;
+  readonly activities = this.taskState.activities;
+  readonly formOptions = this.taskState.formOptions;
 
   readonly activeTasks = computed(() =>
     this.tasks().filter((task) => !TASK_TERMINAL_STATUS_IDS.includes(task.statusId ?? -1))
   );
 
   constructor(
-    @Inject(TASK_DATA_SOURCE) private readonly taskDataSource: TaskDataSource,
     private readonly authService: AuthService,
-    private readonly http: HttpClient
+    private readonly taskApi: TaskApiClient,
+    private readonly taskState: TaskStateStore
   ) {
-    this.tasks.set(this.taskDataSource.getTasks());
-    this.activities.set(this.taskDataSource.getTaskActivities());
-    this.formOptions.set(this.taskDataSource.getTaskFormOptions());
     void this.loadFromApi();
   }
 
   async loadFromApi() {
     try {
-      const [tasks, activities, formOptions] = await Promise.all([
-        firstValueFrom(this.http.get<Task[]>(`${API_BASE_URL}/tasks`)),
-        firstValueFrom(this.http.get<TaskActivity[]>(`${API_BASE_URL}/tasks/activities`)),
-        firstValueFrom(this.http.get<TaskFormOptions>(`${API_BASE_URL}/tasks/form-options`))
-      ]);
+      const { tasks, activities, formOptions } = await this.taskApi.loadSnapshot();
 
       this.tasks.set(tasks.map((task) => this.normalizeTask(task)));
       this.activities.set(activities.map((activity) => ({ ...activity, createdAt: new Date(activity.createdAt) })));
@@ -62,20 +54,20 @@ export class TaskService {
     return this.tasks();
   }
 
-  getById(id: number) {
+  getById(id: EntityId) {
     return this.tasks().find((task) => task.id === id) ?? null;
   }
 
-  getActivitiesByTaskId(taskId: number) {
+  getActivitiesByTaskId(taskId: EntityId) {
     return this.activities().filter((activity) => activity.taskId === taskId);
   }
 
-  getSubtasksByTaskId(taskId: number) {
+  getSubtasksByTaskId(taskId: EntityId) {
     const task = this.getById(taskId);
     return task ? this.cloneSubtasks(this.getTaskSubtasks(task)) : [];
   }
 
-  getParentTaskOptions(currentTaskId?: number) {
+  getParentTaskOptions(currentTaskId?: EntityId) {
     return this.tasks()
       .filter((task) => task.id !== currentTaskId)
       .map((task) => ({
@@ -85,12 +77,12 @@ export class TaskService {
   }
 
   createTask(input: CreateTaskInput) {
-    const nextId = this.tasks().length ? Math.max(...this.tasks().map((task) => task.id)) + 1 : 1;
+    const nextId = this.createLocalId();
     const now = new Date();
     const nextTask: Task = {
       id: nextId,
-      code: `CV-${String(nextId).padStart(4, '0')}`,
-      projectId: input.projectId ?? 1,
+      code: `CV-${this.formatLocalCode(nextId)}`,
+      projectId: input.projectId,
       parentTaskId: input.parentTaskId,
       title: input.title.trim(),
       description: input.description?.trim(),
@@ -100,7 +92,7 @@ export class TaskService {
       priorityId: input.priorityId ?? 2,
       urgencyLevel: input.urgencyLevel,
       securityLevel: input.securityLevel,
-      reporterId: 1,
+      reporterId: this.authService.user()?.id ?? 1,
       assigneeId: input.assigneeId,
       collaboratorIds: [...(input.collaboratorIds ?? [])],
       watcherIds: [...input.watcherIds],
@@ -134,8 +126,8 @@ export class TaskService {
       ...activities
     ]);
 
-    void firstValueFrom(
-      this.http.post<{ id: number }>(`${API_BASE_URL}/tasks`, {
+    void this.taskApi
+      .createTask({
         title: input.title,
         description: input.description,
         taskType: input.taskType,
@@ -154,14 +146,13 @@ export class TaskService {
         watcherIds: input.watcherIds,
         tags: input.tags
       })
-    )
       .then(() => this.loadFromApi())
       .catch(() => undefined);
 
     return nextTask;
   }
 
-  acceptTask(taskId: number) {
+  acceptTask(taskId: EntityId) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -189,7 +180,7 @@ export class TaskService {
     return result;
   }
 
-  rejectAcceptance(taskId: number, reason: string) {
+  rejectAcceptance(taskId: EntityId, reason: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -218,7 +209,7 @@ export class TaskService {
     return result;
   }
 
-  requestExtension(taskId: number, dueDate: Date, reason: string) {
+  requestExtension(taskId: EntityId, dueDate: Date, reason: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -257,13 +248,12 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests`, {
+      void this.taskApi
+        .requestExtension(taskId, {
           requestedDueDate: this.toApiDate(dueDate),
           reason: note,
           requestedByUserId: this.authService.user()?.id ?? 1
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -271,7 +261,7 @@ export class TaskService {
     return result;
   }
 
-  approveExtensionRequest(taskId: number, requestId: number, note: string) {
+  approveExtensionRequest(taskId: EntityId, requestId: EntityId, note: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -322,13 +312,12 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, {
+      void this.taskApi
+        .reviewExtension(taskId, requestId, {
           approved: true,
           reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -336,7 +325,7 @@ export class TaskService {
     return result;
   }
 
-  rejectExtensionRequest(taskId: number, requestId: number, note: string) {
+  rejectExtensionRequest(taskId: EntityId, requestId: EntityId, note: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -383,13 +372,12 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, {
+      void this.taskApi
+        .reviewExtension(taskId, requestId, {
           approved: false,
           reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
-      )
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -397,7 +385,7 @@ export class TaskService {
     return result;
   }
 
-  transferAssignee(taskId: number, assigneeId: number, reason: string) {
+  transferAssignee(taskId: EntityId, assigneeId: EntityId, reason: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -426,9 +414,8 @@ export class TaskService {
     );
 
     if (result.success) {
-      void firstValueFrom(
-        this.http.post(`${API_BASE_URL}/tasks/${taskId}/assignee`, { assigneeId, reason: note })
-      )
+      void this.taskApi
+        .transferAssignee(taskId, { assigneeId, reason: note })
         .then(() => this.loadFromApi())
         .catch(() => undefined);
     }
@@ -436,7 +423,7 @@ export class TaskService {
     return result;
   }
 
-  createSubtask(taskId: number, input: SubTaskInput) {
+  createSubtask(taskId: EntityId, input: SubTaskInput) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -460,7 +447,7 @@ export class TaskService {
     const now = Date.now();
     const progress = this.normalizeProgress(input.progress ?? 0);
     const nextSubtask: SubTask = {
-      id: now,
+      id: this.createLocalId(now),
       taskId,
       title,
       assigneeId: input.assigneeId,
@@ -501,7 +488,7 @@ export class TaskService {
     return result;
   }
 
-  updateSubtask(taskId: number, subtaskId: number, changes: Partial<SubTaskInput>) {
+  updateSubtask(taskId: EntityId, subtaskId: EntityId, changes: Partial<SubTaskInput>) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -576,7 +563,7 @@ export class TaskService {
     return result;
   }
 
-  toggleSubtaskDone(taskId: number, subtaskId: number) {
+  toggleSubtaskDone(taskId: EntityId, subtaskId: EntityId) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -631,7 +618,7 @@ export class TaskService {
     return result;
   }
 
-  deleteSubtask(taskId: number, subtaskId: number) {
+  deleteSubtask(taskId: EntityId, subtaskId: EntityId) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -670,7 +657,7 @@ export class TaskService {
     return result;
   }
 
-  completeTask(taskId: number, note: string) {
+  completeTask(taskId: EntityId, note: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -692,7 +679,7 @@ export class TaskService {
     return result;
   }
 
-  confirmCompletion(taskId: number, note: string) {
+  confirmCompletion(taskId: EntityId, note: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -728,7 +715,7 @@ export class TaskService {
     return result;
   }
 
-  cancelTask(taskId: number, reason: string) {
+  cancelTask(taskId: EntityId, reason: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -751,7 +738,7 @@ export class TaskService {
     return result;
   }
 
-  addTaskFeedback(taskId: number, body: string) {
+  addTaskFeedback(taskId: EntityId, body: string) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -791,7 +778,7 @@ export class TaskService {
     return result;
   }
 
-  duplicateTask(taskId: number) {
+  duplicateTask(taskId: EntityId) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -804,7 +791,7 @@ export class TaskService {
     });
   }
 
-  createSimilarTask(taskId: number) {
+  createSimilarTask(taskId: EntityId) {
     const task = this.getById(taskId);
 
     if (!task) {
@@ -957,12 +944,12 @@ export class TaskService {
       };
     }
 
-    const nextId = this.tasks().length ? Math.max(...this.tasks().map((item) => item.id)) + 1 : 1;
+    const nextId = this.createLocalId();
     const now = new Date();
     const clonedTask: Task = {
       ...task,
       id: nextId,
-      code: `CV-${String(nextId).padStart(4, '0')}`,
+      code: `CV-${this.formatLocalCode(nextId)}`,
       title: options.title,
       statusId: TASK_STATUS_IDS.MOI_TAO,
       progress: 0,
@@ -1046,7 +1033,7 @@ export class TaskService {
             : Math.max(0, task.progress - 70);
 
       return {
-        id: task.id * 100 + index + 1,
+        id: this.createLocalId((typeof task.id === 'number' ? task.id * 100 : Date.now()) + index + 1),
         taskId: task.id,
         title,
         assigneeId: task.assigneeId,
@@ -1098,11 +1085,11 @@ export class TaskService {
     return (subtasks ?? []).map((subtask) => ({ ...subtask, dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined }));
   }
 
-  private cloneSubtasksForTask(subtasks: SubTask[] | undefined, taskId: number) {
+  private cloneSubtasksForTask(subtasks: SubTask[] | undefined, taskId: EntityId) {
     const now = Date.now();
     return (subtasks ?? []).map((subtask, index) => ({
       ...subtask,
-      id: now + index,
+      id: this.createLocalId(now + index),
       taskId,
       dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined,
       createdAt: now,
@@ -1197,7 +1184,7 @@ export class TaskService {
     this.activities.update((activities) => [...nextActivities, ...activities]);
   }
 
-  private recordActivity(taskId: number, actionType: string, oldValue?: string, newValue?: string) {
+  private recordActivity(taskId: EntityId, actionType: string, oldValue?: string, newValue?: string) {
     this.activities.update((activities) => [
       {
         id: Date.now() + Math.floor(Math.random() * 1000),
@@ -1267,5 +1254,17 @@ export class TaskService {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${date.getFullYear()}-${month}-${day}`;
+  }
+
+  private createLocalId(seed = Date.now()): EntityId {
+    const numericIds = this.tasks()
+      .map((task) => task.id)
+      .filter((id): id is number => typeof id === 'number');
+
+    return numericIds.length ? Math.max(...numericIds, seed) + 1 : seed;
+  }
+
+  private formatLocalCode(id: EntityId) {
+    return typeof id === 'number' ? String(id).padStart(4, '0') : id.slice(0, 8);
   }
 }

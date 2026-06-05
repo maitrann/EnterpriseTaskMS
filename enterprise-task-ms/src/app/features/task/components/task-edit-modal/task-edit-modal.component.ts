@@ -9,6 +9,7 @@ import {
   getTaskStatusLabel,
   TASK_STATUS_OPTIONS
 } from '../../../../core/constants/task-status.constants';
+import { EntityId } from '../../../../core/models/common-id.model';
 import { TaskFormOptions, TaskMemberOption } from '../../../../core/models/task-form.model';
 import { Task } from '../../../../core/models/task.model';
 import {
@@ -27,7 +28,7 @@ export class TaskEditModalComponent {
   private _task!: Task;
 
   @Input({ required: true }) formOptions!: TaskFormOptions;
-  @Input() projectOptions: Array<{ value: number; label: string }> = [];
+  @Input() projectOptions: Array<{ value: EntityId; label: string }> = [];
   @Input() canManageClosedTasks = false;
 
   @Input({ required: true }) set task(value: Task) {
@@ -269,7 +270,8 @@ export class TaskEditModalComponent {
 
     if (!this.isCrossDepartmentTask()) {
       const validUserIds = this.filteredUsers().map((user) => user.id);
-      this.task.assigneeId = validUserIds.includes(this.task.assigneeId ?? -1) ? this.task.assigneeId : undefined;
+      this.task.assigneeId =
+        this.task.assigneeId && validUserIds.includes(this.task.assigneeId) ? this.task.assigneeId : undefined;
       this.task.collaboratorIds = (this.task.collaboratorIds ?? []).filter((id) => validUserIds.includes(id));
       this.task.watcherIds = (this.task.watcherIds ?? []).filter((id) => validUserIds.includes(id));
     }
@@ -287,11 +289,11 @@ export class TaskEditModalComponent {
     this.save.emit(this.task);
   }
 
-  private resolveUserName(userId?: number) {
+  private resolveUserName(userId?: EntityId) {
     return this.formOptions?.users.find((user) => user.id === userId)?.label;
   }
 
-  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<number> {
+  private mapUserToOption(user: TaskMemberOption): CustomSelectOption<EntityId> {
     return {
       value: user.id,
       label: user.label,

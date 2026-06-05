@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
 import { getTaskStatusLabel } from '../../core/constants/task-status.constants';
+import { EntityId } from '../../core/models/common-id.model';
 import { ProjectOverview, ProjectService } from '../../core/services/project.service';
 import { Task } from '../../core/models/task.model';
 import { TaskService } from '../../core/services/task.service';
@@ -21,7 +22,7 @@ export class ProjectComponent {
 
   readonly overviews = this.projectService.overviews;
   readonly formOptions = this.taskService.formOptions;
-  readonly selectedProjectId = signal(1);
+  readonly selectedProjectId = signal<EntityId>(1);
   readonly selectedTask = signal<Task | null>(null);
 
   readonly selectedOverview = computed<ProjectOverview | null>(
@@ -42,7 +43,7 @@ export class ProjectComponent {
     ];
   });
 
-  selectProject(projectId: number) {
+  selectProject(projectId: EntityId) {
     this.selectedProjectId.set(projectId);
     this.selectedTask.set(null);
   }
@@ -71,12 +72,12 @@ export class ProjectComponent {
     return this.formOptions().departments.find((department) => department.id === departmentId)?.label ?? `PB-${departmentId}`;
   }
 
-  getUserLabel(userId?: number) {
+  getUserLabel(userId?: EntityId) {
     if (!userId) {
       return 'Chưa chọn';
     }
 
-    return this.formOptions().users.find((user) => user.id === userId)?.label ?? `NV-${userId}`;
+    return this.formOptions().users.find((user) => user.id === userId)?.label ?? `NV-${String(userId).slice(0, 8)}`;
   }
 
   getDueClass(task: Task) {

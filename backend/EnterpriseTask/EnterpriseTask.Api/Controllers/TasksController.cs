@@ -51,6 +51,17 @@ public sealed class TasksController(
             : CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id });
     }
 
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.UpdateAsync(actorUserId, id, request, cancellationToken));
+    }
+
     [HttpPost("{id:guid}/status")]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
@@ -60,6 +71,29 @@ public sealed class TasksController(
         }
 
         return ToActionResult(await taskCommands.UpdateStatusAsync(actorUserId, id, request, cancellationToken));
+    }
+
+    [HttpPost("{id:guid}/assignee")]
+    public async Task<IActionResult> TransferAssignee(Guid id, TransferTaskAssigneeRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.TransferAssigneeAsync(actorUserId, id, request, cancellationToken));
+    }
+
+    [HttpPost("{id:guid}/duplicate")]
+    public async Task<ActionResult> Duplicate(Guid id, DuplicateTaskRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await taskCommands.DuplicateAsync(actorUserId, id, request, cancellationToken);
+        return ToCreateActionResult(result);
     }
 
     [HttpPost("{id:guid}/comments")]
@@ -72,6 +106,29 @@ public sealed class TasksController(
 
         var result = await taskCommands.AddCommentAsync(actorUserId, id, request, cancellationToken);
         return ToCreateActionResult(result);
+    }
+
+    [HttpPost("{id:guid}/extension-requests")]
+    public async Task<ActionResult> RequestExtension(Guid id, CreateTaskExtensionRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var result = await taskCommands.RequestExtensionAsync(actorUserId, id, request, cancellationToken);
+        return ToCreateActionResult(result);
+    }
+
+    [HttpPost("{id:guid}/extension-requests/{requestId:guid}/review")]
+    public async Task<IActionResult> ReviewExtension(Guid id, Guid requestId, ReviewTaskExtensionRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.ReviewExtensionAsync(actorUserId, id, requestId, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/subtasks")]

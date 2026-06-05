@@ -6,6 +6,7 @@ import {
   TASK_STATUS_IDS,
   getTaskStatusLabel
 } from '../../../../core/constants/task-status.constants';
+import { EntityId } from '../../../../core/models/common-id.model';
 import { SubTask } from '../../../../core/models/subtask.model';
 import { TaskComment } from '../../../../core/models/task-comment.model';
 import { TaskFormOptions } from '../../../../core/models/task-form.model';
@@ -47,17 +48,17 @@ export class TaskDetailDrawerComponent {
   readonly subtasks = signal<SubTask[]>([]);
   readonly taskComments = signal<TaskComment[]>([]);
   readonly newSubtaskTitle = signal('');
-  readonly newSubtaskAssigneeId = signal<number | null>(null);
+  readonly newSubtaskAssigneeId = signal<EntityId | null>(null);
   readonly newSubtaskDueDate = signal('');
   readonly newSubtaskProgress = signal(0);
-  readonly editingSubtaskId = signal<number | null>(null);
+  readonly editingSubtaskId = signal<EntityId | null>(null);
   readonly editingTitle = signal('');
   readonly actionMessage = signal('');
   readonly feedbackDraft = signal('');
   readonly rejectReason = signal('');
   readonly extensionDate = signal('');
   readonly extensionReason = signal('');
-  readonly transferAssigneeId = signal<number | null>(null);
+  readonly transferAssigneeId = signal<EntityId | null>(null);
   readonly transferReason = signal('');
   readonly completionNote = signal('');
   readonly cancelReason = signal('');
@@ -74,7 +75,7 @@ export class TaskDetailDrawerComponent {
 
   readonly taskActivities = computed(() => this.taskService.getActivitiesByTaskId(this.task.id));
   readonly assigneeOptions = computed(() => this.formOptions?.users ?? []);
-  readonly assigneeSelectOptions = computed<CustomSelectOption<number | null>[]>(() => [
+  readonly assigneeSelectOptions = computed<CustomSelectOption<EntityId | null>[]>(() => [
     { value: null, label: 'Chưa chọn' },
     ...(this.formOptions?.users ?? []).map((user) => ({
       value: user.id,
@@ -92,7 +93,7 @@ export class TaskDetailDrawerComponent {
 
   readonly overviewItems = computed(() => [
     { label: 'Mã công việc', value: this.task.code || `#${this.task.id}` },
-    { label: 'Người phụ trách', value: `NV-${String(this.task.assigneeId ?? 0).padStart(2, '0')}` },
+    { label: 'Người phụ trách', value: this.resolveUserLabel(this.task.assigneeId) },
     { label: 'Dự kiến', value: `${this.task.estimatedHours ?? 0}h` },
     { label: 'Thực tế', value: `${this.task.actualHours ?? 0}h` }
   ]);
@@ -178,7 +179,7 @@ export class TaskDetailDrawerComponent {
     this.applySubtaskResult(this.taskService.toggleSubtaskDone(this.task.id, subtask.id), 'Đã cập nhật nhiệm vụ con.');
   }
 
-  deleteSubtask(id: number) {
+  deleteSubtask(id: EntityId) {
     this.applySubtaskResult(this.taskService.deleteSubtask(this.task.id, id), 'Đã xóa nhiệm vụ con.');
   }
 
@@ -339,7 +340,7 @@ export class TaskDetailDrawerComponent {
     );
   }
 
-  updateSubtaskAssignee(subtask: SubTask, value: number | null) {
+  updateSubtaskAssignee(subtask: SubTask, value: EntityId | null) {
     this.applySubtaskResult(
       this.taskService.updateSubtask(this.task.id, subtask.id, { assigneeId: value ?? undefined }),
       'Đã cập nhật người xử lý nhiệm vụ con.'
@@ -405,6 +406,14 @@ export class TaskDetailDrawerComponent {
     if (result.success && result.task) {
       this.taskCreated.emit(result.task);
     }
+  }
+
+  private resolveUserLabel(userId?: EntityId) {
+    if (!userId) {
+      return 'Chưa chọn';
+    }
+
+    return this.formOptions?.users.find((user) => user.id === userId)?.label ?? String(userId).slice(0, 8);
   }
 
   private toDateInputValue(value?: Date) {

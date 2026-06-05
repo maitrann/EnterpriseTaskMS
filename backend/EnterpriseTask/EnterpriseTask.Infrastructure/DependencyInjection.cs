@@ -1,4 +1,5 @@
 using EnterpriseTask.Application.Auth;
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Departments;
 using EnterpriseTask.Application.Development;
 using EnterpriseTask.Application.InterDepartmentRequests;
@@ -41,11 +42,13 @@ public static class DependencyInjection
 
         services.AddScoped<ITaskQueries, PostgresTaskQueries>();
         services.AddScoped<ITaskCommands, PostgresTaskCommands>();
+        services.AddScoped<ITaskAccessReader, PostgresTaskAccessReader>();
         services.AddScoped<IDepartmentQueries, PostgresDepartmentQueries>();
         services.AddScoped<IProjectQueries, PostgresProjectQueries>();
         services.AddScoped<IInterDepartmentRequestQueries, PostgresInterDepartmentRequestQueries>();
         services.AddScoped<IInterDepartmentRequestCommands, PostgresInterDepartmentRequestCommands>();
         services.AddScoped<IAuthService, JwtAuthService>();
+        services.AddScoped<IDatabaseHealthCheck, PostgresDatabaseHealthCheck>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         return services;

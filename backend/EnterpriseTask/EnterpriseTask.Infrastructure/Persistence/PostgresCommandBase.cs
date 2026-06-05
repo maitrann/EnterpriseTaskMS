@@ -35,7 +35,8 @@ public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
                 return (T)(object)(result is Guid guid ? guid : Guid.Parse(Convert.ToString(result) ?? string.Empty));
             }
 
-            return (T)Convert.ChangeType(result, typeof(T));
+            var targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+            return (T)Convert.ChangeType(result, targetType);
         }
         finally
         {

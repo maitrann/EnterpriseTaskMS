@@ -15,18 +15,18 @@ public sealed record CreateTaskRequest(
     string? Source,
     string? UrgencyLevel,
     string? SecurityLevel,
-    long[]? CollaboratorIds,
-    long[]? WatcherIds,
+    Guid[]? CollaboratorIds,
+    Guid[]? WatcherIds,
     string[]? Tags);
 
 public sealed record UpdateTaskRequest(
     string Title,
     string? Description,
     string? TaskType,
-    long? ProjectId,
-    long? ParentTaskId,
+    Guid? ProjectId,
+    Guid? ParentTaskId,
     long? DepartmentId,
-    long? AssigneeId,
+    Guid? AssigneeId,
     long? StatusId,
     long? PriorityId,
     DateOnly? StartDate,
@@ -37,13 +37,21 @@ public sealed record UpdateTaskRequest(
     string? Source,
     string? UrgencyLevel,
     string? SecurityLevel,
-    long[]? CollaboratorIds,
-    long[]? WatcherIds,
+    Guid[]? CollaboratorIds,
+    Guid[]? WatcherIds,
     string[]? Tags);
 
 public sealed record UpdateTaskStatusRequest(long StatusId, string? Note);
 
 public sealed record AddTaskCommentRequest(string Content);
+
+public sealed record TransferTaskAssigneeRequest(Guid AssigneeId, string? Reason);
+
+public sealed record DuplicateTaskRequest(string? Title, bool ResetPeople, bool ResetAttachments);
+
+public sealed record CreateTaskExtensionRequest(DateOnly RequestedDueDate, string Reason);
+
+public sealed record ReviewTaskExtensionRequest(bool Approved, string? ReviewNote);
 
 public sealed record CreateSubTaskRequest(string Title, Guid? AssigneeId, DateOnly? DueDate, int? Progress);
 
