@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 
-import { getTaskStatusLabel } from '../../core/constants/task-status.constants';
+import { getTaskStatusLabel, TASK_STATUS_IDS } from '../../core/constants/task-status.constants';
 import { EntityId } from '../../core/models/common-id.model';
 import { ProjectOverview, ProjectService } from '../../core/services/project.service';
 import { Task } from '../../core/models/task.model';
@@ -81,7 +81,7 @@ export class ProjectComponent {
   }
 
   getDueClass(task: Task) {
-    if (task.statusId === 10) {
+    if (task.statusId === TASK_STATUS_IDS.QUA_HAN) {
       return 'overdue';
     }
 

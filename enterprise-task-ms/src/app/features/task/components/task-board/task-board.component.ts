@@ -10,6 +10,7 @@ import {
 import {
   canTransitionTaskStatus,
   getAllowedNextStatusIds,
+  TASK_STATUS_IDS,
   TASK_STATUS_DEFINITIONS
 } from '../../../../core/constants/task-status.constants';
 import { CreateTaskInput } from '../../../../core/models/task-form.model';
@@ -46,9 +47,22 @@ export class TaskBoardComponent {
   private readonly projectService = inject(ProjectService);
   private readonly taskService = inject(TaskService);
   private readonly statusPresets = {
-    focus: [1, 2, 3, 5, 10],
-    active: [2, 3, 4, 5, 6, 10],
-    closing: [7, 8, 9]
+    focus: [
+      TASK_STATUS_IDS.MOI_TAO,
+      TASK_STATUS_IDS.CHO_TIEP_NHAN,
+      TASK_STATUS_IDS.DANG_XU_LY,
+      TASK_STATUS_IDS.CHO_PHE_DUYET,
+      TASK_STATUS_IDS.QUA_HAN
+    ],
+    active: [
+      TASK_STATUS_IDS.CHO_TIEP_NHAN,
+      TASK_STATUS_IDS.DANG_XU_LY,
+      TASK_STATUS_IDS.CHO_PHE_DUYET,
+      TASK_STATUS_IDS.HOAN_THANH,
+      TASK_STATUS_IDS.TAM_DUNG,
+      TASK_STATUS_IDS.QUA_HAN
+    ],
+    closing: [TASK_STATUS_IDS.HOAN_THANH, TASK_STATUS_IDS.DONG, TASK_STATUS_IDS.HUY]
   } as const;
 
   readonly tasks = this.taskService.tasks;
@@ -239,7 +253,7 @@ export class TaskBoardComponent {
   }
 
   getDueState(task: Task): 'normal' | 'warning' | 'overdue' {
-    if (task.statusId === 10) {
+    if (task.statusId === TASK_STATUS_IDS.QUA_HAN) {
       return 'overdue';
     }
 

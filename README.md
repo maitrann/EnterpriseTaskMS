@@ -41,7 +41,7 @@ Backend seed mode:
 
 - Admin email: `admin@etms.local`
 - User emails include `chau.hr@etms.local`, `long.it@etms.local`, and `tran.dev@etms.local`
-- Passwords are configured locally through .NET user secrets. Do not commit real passwords.
+- Backend seed is currently a no-op. Create users in Supabase Auth, then assign roles in `public.user_roles`. Do not commit real passwords.
 
 ## Screenshots
 
@@ -67,12 +67,24 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=YOUR_SUPABAS
 dotnet user-secrets set "Jwt:Secret" "CHANGE_ME_TO_A_LONG_LOCAL_DEV_SECRET"
 dotnet user-secrets set "Jwt:Issuer" "EnterpriseTask"
 dotnet user-secrets set "Jwt:Audience" "EnterpriseTaskFrontend"
-dotnet user-secrets set "DevelopmentSeed:AdminPassword" "Admin@123"
-dotnet user-secrets set "DevelopmentSeed:UserPassword" "Mock@123"
 dotnet run
 ```
 
 Swagger UI is available at `/swagger` in development.
+
+Apply database migrations in Development:
+
+```http
+POST /api/dev/migrate
+```
+
+Check database/migration health:
+
+```http
+GET /api/health/database
+```
+
+See `docs/database/README.md` for the forward-only migration workflow and recovery notes. `supabase_schema_v2_clean.sql` remains a destructive reset script for disposable local/demo databases only.
 
 ### Frontend
 
@@ -83,6 +95,21 @@ npm start
 ```
 
 The frontend runs at `http://localhost:4200` and calls the API base URL defined in `src/app/core/constants/app.constants.ts`.
+
+## Test Commands
+
+Backend:
+
+```powershell
+dotnet test backend\EnterpriseTask\EnterpriseTask.slnx
+```
+
+Frontend:
+
+```powershell
+cd enterprise-task-ms
+npm.cmd test -- --watch=false
+```
 
 ## API Summary
 

@@ -3,6 +3,7 @@ import { Injectable, computed, inject } from '@angular/core';
 import {
   TASK_STATUS_IDS,
   TASK_TERMINAL_STATUS_IDS,
+  canTransitionTaskStatus,
   getTaskStatusLabel
 } from '../constants/task-status.constants';
 import { EntityId } from '../models/common-id.model';
@@ -662,6 +663,13 @@ export class TaskService {
       return this.notFoundResult();
     }
 
+    if (!canTransitionTaskStatus(task.statusId, TASK_STATUS_IDS.HOAN_THANH)) {
+      return {
+        success: false,
+        message: `Không thể chuyển từ "${getTaskStatusLabel(task.statusId)}" sang "${getTaskStatusLabel(TASK_STATUS_IDS.HOAN_THANH)}".`
+      };
+    }
+
     const result = this.applyTaskAction(
       task,
       (current) => ({
@@ -718,6 +726,13 @@ export class TaskService {
 
     if (!task) {
       return this.notFoundResult();
+    }
+
+    if (!canTransitionTaskStatus(task.statusId, TASK_STATUS_IDS.HUY)) {
+      return {
+        success: false,
+        message: `Không thể chuyển từ "${getTaskStatusLabel(task.statusId)}" sang "${getTaskStatusLabel(TASK_STATUS_IDS.HUY)}".`
+      };
     }
 
     const note = reason.trim() || 'Hủy công việc.';

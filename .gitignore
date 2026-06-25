@@ -1,5 +1,6 @@
 .vs/
 **/.vs/
+**/.cr/
 **/bin/
 **/obj/
 *.user

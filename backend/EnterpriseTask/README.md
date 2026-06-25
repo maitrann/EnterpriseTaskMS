@@ -25,8 +25,6 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=YOUR_SUPABAS
 dotnet user-secrets set "Jwt:Secret" "CHANGE_ME_TO_A_LONG_LOCAL_DEV_SECRET"
 dotnet user-secrets set "Jwt:Issuer" "EnterpriseTask"
 dotnet user-secrets set "Jwt:Audience" "EnterpriseTaskFrontend"
-dotnet user-secrets set "DevelopmentSeed:AdminPassword" "CHANGE_ME_ADMIN_PASSWORD"
-dotnet user-secrets set "DevelopmentSeed:UserPassword" "CHANGE_ME_USER_PASSWORD"
 ```
 
 You can also use an environment variable:
@@ -40,6 +38,18 @@ Check the database connection:
 ```http
 GET /api/health/database
 ```
+
+Apply forward-only SQL migrations in Development:
+
+```http
+POST /api/dev/migrate
+```
+
+The migration endpoint is disabled outside Development. It creates `public.schema_migrations`, applies embedded SQL migrations once, and records the initial migration as a baseline when an existing EnterpriseTask schema is detected. The old `supabase_schema_v2_clean.sql` script is a destructive reset script for disposable local/demo databases only.
+
+`POST /api/dev/seed` is intentionally a no-op. Create users in Supabase Auth, then assign roles in `public.user_roles`; the backend does not create default passwords.
+
+See `docs/database/README.md` for clean setup, existing database baseline, and recovery notes.
 
 ## Run
 

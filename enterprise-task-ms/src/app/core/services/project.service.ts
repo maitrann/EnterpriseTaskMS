@@ -3,6 +3,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../constants/app.constants';
+import { TASK_STATUS_IDS, TASK_TERMINAL_STATUS_IDS } from '../constants/task-status.constants';
 import { EntityId } from '../models/common-id.model';
 import { Project } from '../models/project.model';
 import { Task } from '../models/task.model';
@@ -138,12 +139,12 @@ export class ProjectService {
       taskCount: projectTasks.length,
       completionRate,
       overdueCount: projectTasks.filter((task) => this.isOverdue(task)).length,
-      activeCount: projectTasks.filter((task) => ![8, 9].includes(task.statusId ?? -1)).length
+      activeCount: projectTasks.filter((task) => !TASK_TERMINAL_STATUS_IDS.includes(task.statusId ?? -1)).length
     };
   }
 
   private isOverdue(task: Task) {
-    if (task.statusId === 10) {
+    if (task.statusId === TASK_STATUS_IDS.QUA_HAN) {
       return true;
     }
 

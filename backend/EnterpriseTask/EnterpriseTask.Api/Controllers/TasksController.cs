@@ -178,6 +178,7 @@ public sealed class TasksController(
         {
             TaskCommandResult.Success => NoContent(),
             TaskCommandResult.Forbidden => Forbid(),
+            TaskCommandResult.Conflict => Conflict(),
             _ => NotFound()
         };
     }
@@ -188,6 +189,7 @@ public sealed class TasksController(
         {
             TaskCommandResult.Success => Ok(new { id = result.Id }),
             TaskCommandResult.Forbidden => Forbid(),
+            TaskCommandResult.Conflict => Conflict(),
             _ => NotFound()
         };
     }

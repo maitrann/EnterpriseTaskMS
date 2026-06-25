@@ -61,7 +61,8 @@ public enum TaskCommandResult
 {
     Success,
     NotFound,
-    Forbidden
+    Forbidden,
+    Conflict
 }
 
 public sealed record TaskCreateResult(TaskCommandResult Result, Guid? Id = null);

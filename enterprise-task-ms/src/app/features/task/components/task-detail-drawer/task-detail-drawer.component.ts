@@ -3,6 +3,7 @@ import { Component, computed, EventEmitter, Input, Output, signal } from '@angul
 import { FormsModule } from '@angular/forms';
 
 import {
+  canTransitionTaskStatus,
   TASK_STATUS_IDS,
   getTaskStatusLabel
 } from '../../../../core/constants/task-status.constants';
@@ -118,7 +119,7 @@ export class TaskDetailDrawerComponent {
   }
 
   get dueStatus(): 'normal' | 'warning' | 'overdue' {
-    if (this.task.statusId === 10) {
+    if (this.task.statusId === TASK_STATUS_IDS.QUA_HAN) {
       return 'overdue';
     }
 
@@ -294,13 +295,7 @@ export class TaskDetailDrawerComponent {
   }
 
   canComplete() {
-    const completedStatusIds: number[] = [
-      TASK_STATUS_IDS.HOAN_THANH,
-      TASK_STATUS_IDS.DONG,
-      TASK_STATUS_IDS.HUY
-    ];
-
-    return !completedStatusIds.includes(this.task.statusId ?? -1);
+    return canTransitionTaskStatus(this.task.statusId, TASK_STATUS_IDS.HOAN_THANH);
   }
 
   canConfirmCompletion() {
@@ -308,9 +303,7 @@ export class TaskDetailDrawerComponent {
   }
 
   canCancel() {
-    const terminalStatusIds: number[] = [TASK_STATUS_IDS.DONG, TASK_STATUS_IDS.HUY];
-
-    return !terminalStatusIds.includes(this.task.statusId ?? -1);
+    return canTransitionTaskStatus(this.task.statusId, TASK_STATUS_IDS.HUY);
   }
 
   startEdit(subtask: SubTask) {

@@ -10,10 +10,19 @@ public sealed class DatabaseHealthController(IDatabaseHealthCheck databaseHealth
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken cancellationToken)
     {
-        var canConnect = await databaseHealthCheck.CanConnectAsync(cancellationToken);
+        var status = await databaseHealthCheck.CheckAsync(cancellationToken);
 
-        return canConnect
-            ? Ok(new { status = "Healthy" })
-            : StatusCode(StatusCodes.Status503ServiceUnavailable, new { status = "Unhealthy" });
+        var response = new
+        {
+            status = status.Status,
+            configured = status.IsConfigured,
+            database = status.CanConnect ? "Connected" : "Unavailable",
+            lastAppliedMigration = status.LastAppliedMigration,
+            message = status.Message
+        };
+
+        return status is { IsConfigured: true, CanConnect: true }
+            ? Ok(response)
+            : StatusCode(StatusCodes.Status503ServiceUnavailable, response);
     }
 }

@@ -1,6 +1,7 @@
 import { CommonModule, DatePipe } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
+import { TASK_STATUS_IDS } from '../../../../core/constants/task-status.constants';
 import { Task } from '../../../../core/models/task.model';
 
 @Component({
@@ -68,7 +69,7 @@ export class TaskCardComponent {
   }
 
   get isOverdueHighlight() {
-    return this.task.statusId === 10 || this.dueStatus === 'overdue';
+    return this.task.statusId === TASK_STATUS_IDS.QUA_HAN || this.dueStatus === 'overdue';
   }
 
   get assigneeLabel() {

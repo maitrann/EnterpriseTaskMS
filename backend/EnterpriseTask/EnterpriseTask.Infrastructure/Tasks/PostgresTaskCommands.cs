@@ -111,10 +111,18 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
         var currentStatusId = await GetTaskStatusIdAsync(taskId, cancellationToken);
         if (request.StatusId is not null
-            && request.StatusId != currentStatusId
-            && !TaskWorkflowPolicy.CanTransition(currentStatusId, request.StatusId.Value))
+            && request.StatusId != currentStatusId)
         {
-            return TaskCommandResult.Forbidden;
+            var transitionResult = await ValidateStatusTransitionAsync(
+                actorUserId,
+                currentStatusId,
+                request.StatusId.Value,
+                cancellationToken);
+
+            if (transitionResult != TaskCommandResult.Success)
+            {
+                return transitionResult;
+            }
         }
 
         var progress = TaskProgressPolicy.Normalize(request.Progress);
@@ -135,6 +143,16 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
                 progress = @progress,
                 estimated_hours = @estimatedHours,
                 actual_hours = @actualHours,
+                completed_at = CASE
+                    WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
+                    WHEN @statusId IS NOT NULL THEN NULL
+                    ELSE completed_at
+                END,
+                closed_at = CASE
+                    WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
+                    WHEN @statusId IS NOT NULL THEN NULL
+                    ELSE closed_at
+                END,
                 source = @source,
                 urgency_level = @urgencyLevel,
                 security_level = @securityLevel,
@@ -155,6 +173,8 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
                 ("@progress", progress),
                 ("@estimatedHours", request.EstimatedHours),
                 ("@actualHours", request.ActualHours),
+                ("@completedStatusId", TaskStatusIds.Completed),
+                ("@closedStatusId", TaskStatusIds.Closed),
                 ("@source", request.Source?.Trim()),
                 ("@urgencyLevel", request.UrgencyLevel?.Trim()),
                 ("@securityLevel", request.SecurityLevel?.Trim()),
@@ -189,14 +209,40 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         }
 
         var currentStatusId = await GetTaskStatusIdAsync(taskId, cancellationToken);
-        if (!TaskWorkflowPolicy.CanTransition(currentStatusId, request.StatusId))
+        var transitionResult = await ValidateStatusTransitionAsync(
+            actorUserId,
+            currentStatusId,
+            request.StatusId,
+            cancellationToken);
+
+        if (transitionResult != TaskCommandResult.Success)
         {
-            return TaskCommandResult.Forbidden;
+            return transitionResult;
         }
 
         var affected = await ExecuteAsync(
-            "UPDATE tasks SET status_id = @statusId, updated_at = now() WHERE id = @taskId;",
-            [("@statusId", request.StatusId), ("@taskId", taskId)],
+            """
+            UPDATE tasks
+            SET status_id = @statusId,
+                completed_at = CASE
+                    WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
+                    WHEN @statusId <> @closedStatusId THEN NULL
+                    ELSE completed_at
+                END,
+                closed_at = CASE
+                    WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
+                    WHEN @statusId <> @closedStatusId THEN NULL
+                    ELSE closed_at
+                END,
+                updated_at = now()
+            WHERE id = @taskId;
+            """,
+            [
+                ("@statusId", request.StatusId),
+                ("@completedStatusId", TaskStatusIds.Completed),
+                ("@closedStatusId", TaskStatusIds.Closed),
+                ("@taskId", taskId)
+            ],
             cancellationToken);
 
         if (affected > 0 && !string.IsNullOrWhiteSpace(request.Note))
@@ -688,6 +734,30 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
     {
         const string sql = "SELECT status_id FROM tasks WHERE id = @taskId;";
         return await ExecuteScalarAsync<long?>(sql, [("@taskId", taskId)], cancellationToken);
+    }
+
+    private async Task<TaskCommandResult> ValidateStatusTransitionAsync(
+        Guid actorUserId,
+        long? currentStatusId,
+        long nextStatusId,
+        CancellationToken cancellationToken)
+    {
+        var isClosedReopen = currentStatusId == TaskStatusIds.Closed && nextStatusId == TaskStatusIds.InProgress;
+        var allowClosedReopen = isClosedReopen
+            && await taskAccessReader.HasPermissionAsync(actorUserId, "task.reopen", cancellationToken);
+
+        if (!TaskWorkflowPolicy.CanTransition(currentStatusId, nextStatusId, allowClosedReopen))
+        {
+            return TaskCommandResult.Conflict;
+        }
+
+        if (nextStatusId == TaskStatusIds.Closed
+            && !await taskAccessReader.HasPermissionAsync(actorUserId, "task.close", cancellationToken))
+        {
+            return TaskCommandResult.Forbidden;
+        }
+
+        return TaskCommandResult.Success;
     }
 
     private async Task<bool> SubTaskExistsAsync(Guid taskId, Guid subTaskId, CancellationToken cancellationToken)

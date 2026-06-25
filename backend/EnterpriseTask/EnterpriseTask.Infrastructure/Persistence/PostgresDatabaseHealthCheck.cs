@@ -1,12 +1,21 @@
 using EnterpriseTask.Application.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace EnterpriseTask.Infrastructure.Persistence;
 
-public sealed class PostgresDatabaseHealthCheck(ApplicationDbContext dbContext) : IDatabaseHealthCheck
+public sealed class PostgresDatabaseHealthCheck(IDatabaseMigrator databaseMigrator) : IDatabaseHealthCheck
 {
-    public Task<bool> CanConnectAsync(CancellationToken cancellationToken)
+    public async Task<DatabaseHealthStatus> CheckAsync(CancellationToken cancellationToken)
     {
-        return dbContext.Database.CanConnectAsync(cancellationToken);
+        var status = await databaseMigrator.GetStatusAsync(cancellationToken);
+        var healthStatus = status is { IsConfigured: true, CanConnect: true }
+            ? "Healthy"
+            : status.IsConfigured ? "Unhealthy" : "Misconfigured";
+
+        return new DatabaseHealthStatus(
+            status.IsConfigured,
+            status.CanConnect,
+            healthStatus,
+            status.LastAppliedMigration,
+            status.Message);
     }
 }

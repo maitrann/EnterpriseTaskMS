@@ -4,15 +4,15 @@ public static class TaskWorkflowPolicy
 {
     private static readonly IReadOnlyDictionary<long, long[]> Transitions = new Dictionary<long, long[]>
     {
-        [TaskStatusIds.Created] = [TaskStatusIds.Assigned, TaskStatusIds.Cancelled],
-        [TaskStatusIds.Assigned] = [TaskStatusIds.Accepted, TaskStatusIds.Rejected, TaskStatusIds.Cancelled],
-        [TaskStatusIds.Accepted] = [TaskStatusIds.InProgress, TaskStatusIds.Cancelled],
-        [TaskStatusIds.InProgress] = [TaskStatusIds.Waiting, TaskStatusIds.Completed, TaskStatusIds.Cancelled],
-        [TaskStatusIds.Waiting] = [TaskStatusIds.InProgress, TaskStatusIds.Cancelled],
+        [TaskStatusIds.New] = [TaskStatusIds.Assigned, TaskStatusIds.Cancelled],
+        [TaskStatusIds.Assigned] = [TaskStatusIds.InProgress, TaskStatusIds.OnHold, TaskStatusIds.Cancelled],
+        [TaskStatusIds.InProgress] = [TaskStatusIds.PendingReview, TaskStatusIds.Completed, TaskStatusIds.OnHold, TaskStatusIds.Cancelled],
+        [TaskStatusIds.PendingReview] = [TaskStatusIds.InProgress, TaskStatusIds.Completed, TaskStatusIds.Cancelled],
         [TaskStatusIds.Completed] = [TaskStatusIds.Closed, TaskStatusIds.Cancelled],
+        [TaskStatusIds.OnHold] = [TaskStatusIds.Assigned, TaskStatusIds.InProgress, TaskStatusIds.Cancelled],
         [TaskStatusIds.Closed] = [],
         [TaskStatusIds.Cancelled] = [],
-        [TaskStatusIds.Rejected] = []
+        [TaskStatusIds.Overdue] = [TaskStatusIds.InProgress, TaskStatusIds.Completed, TaskStatusIds.Cancelled]
     };
 
     public static bool CanTransition(long? currentStatusId, long nextStatusId, bool allowClosedReopen = false)

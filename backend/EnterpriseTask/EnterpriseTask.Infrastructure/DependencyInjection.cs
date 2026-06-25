@@ -25,14 +25,15 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? configuration.GetConnectionString("Default");
 
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new InvalidOperationException("Missing database connection string. Configure ConnectionStrings:DefaultConnection.");
-        }
+        var databaseConnection = DatabaseConnectionOptions.From(connectionString);
+        services.AddSingleton(databaseConnection);
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseNpgsql(connectionString);
+            if (databaseConnection.IsConfigured)
+            {
+                options.UseNpgsql(databaseConnection.ConnectionString);
+            }
 
             if (enableDetailedErrors)
             {
@@ -54,6 +55,7 @@ public static class DependencyInjection
         services.AddScoped<AssignInterRequestOwnerHandler>();
         services.AddScoped<IAuthService, JwtAuthService>();
         services.AddScoped<IDatabaseHealthCheck, PostgresDatabaseHealthCheck>();
+        services.AddScoped<IDatabaseMigrator, PostgresDatabaseMigrator>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         return services;
