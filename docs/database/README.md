@@ -14,9 +14,14 @@ dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=YOUR_SUPABAS
 dotnet user-secrets set "Jwt:Secret" "CHANGE_ME_TO_A_LOCAL_SECRET_WITH_AT_LEAST_32_UTF8_BYTES"
 dotnet user-secrets set "Jwt:Issuer" "EnterpriseTaskMS"
 dotnet user-secrets set "Jwt:Audience" "EnterpriseTaskMSUsers"
+dotnet user-secrets set "Auth:RefreshTokenDays" "14"
+dotnet user-secrets set "Supabase:Url" "https://YOUR_PROJECT_REF.supabase.co"
+dotnet user-secrets set "Supabase:AnonKey" "YOUR_SUPABASE_ANON_PUBLIC_KEY"
 ```
 
 `backend/EnterpriseTask/EnterpriseTask.Api/appsettings.Local.example.json` is a sanitized reference only. Prefer user secrets or environment variables for real values.
+
+Use the Supabase project URL without `/rest/v1`. The anon key is the public anon API key, not a secret service-role key.
 
 ## Applying Migrations in Development
 
@@ -64,6 +69,49 @@ For a brand-new empty database:
 5. Assign roles in `public.user_roles`.
 
 `POST /api/dev/seed` is intentionally a no-op. It does not create default users or passwords.
+
+## Supabase Auth Login Data
+
+Authentication uses Supabase Auth first, then loads the application profile from public tables:
+
+1. Supabase Auth validates `auth.users.email` and password.
+2. The API receives `auth.users.id`.
+3. The API loads the matching row from `public.profiles`.
+4. The API loads roles from `public.user_roles`.
+
+For each login user, make sure `public.profiles.id` matches `auth.users.id`:
+
+```sql
+insert into public.profiles (id, email, full_name, is_active)
+values (
+  'AUTH_USER_UUID',
+  'admin.truong.tran@etms.local',
+  'Truong Tran',
+  true
+)
+on conflict (id) do update set
+  email = excluded.email,
+  full_name = excluded.full_name,
+  is_active = true;
+```
+
+Assign an admin role for local testing:
+
+```sql
+insert into public.user_roles (user_id, role_id)
+select
+  'AUTH_USER_UUID',
+  r.id
+from public.roles r
+where r.code = 'admin'
+on conflict do nothing;
+```
+
+Replace `AUTH_USER_UUID` with the actual user id from `auth.users`.
+
+## Refresh Token Sessions
+
+`0002_auth_refresh_sessions.sql` creates `public.auth_refresh_sessions` for local API-issued refresh tokens. The API stores SHA-256 hashes only. Access tokens remain short-lived JWTs; refresh tokens rotate through `POST /api/auth/refresh`, and `POST /api/auth/logout` revokes the refresh-token family.
 
 ## Recovery Notes
 

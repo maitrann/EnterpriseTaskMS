@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace EnterpriseTask.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicyNames.AuthenticatedUser)]
 [Route("api/departments")]
 public sealed class DepartmentsController(
     IDepartmentQueries departmentQueries,

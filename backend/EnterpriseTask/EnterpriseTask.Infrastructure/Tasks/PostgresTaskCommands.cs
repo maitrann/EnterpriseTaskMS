@@ -1,3 +1,4 @@
+using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Tasks;
 using EnterpriseTask.Domain.Tasks;
 using EnterpriseTask.Infrastructure.Persistence;
@@ -9,7 +10,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 {
     public async Task<TaskCreateResult> CreateAsync(Guid actorUserId, CreateTaskRequest request, CancellationToken cancellationToken)
     {
-        if (!await taskAccessReader.HasPermissionAsync(actorUserId, "task.create", cancellationToken))
+        if (!await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskCreate, cancellationToken))
         {
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
@@ -21,7 +22,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
         if (request.AssigneeId is not null
             && request.AssigneeId.Value != actorUserId
-            && !await taskAccessReader.HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
+            && !await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskAssign, cancellationToken))
         {
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
@@ -40,53 +41,56 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             RETURNING id;
             """;
 
-        var taskId = await ExecuteScalarAsync<Guid>(sql,
-            [
-                ("@code", code),
-                ("@projectId", request.ProjectId),
-                ("@parentTaskId", request.ParentTaskId),
-                ("@title", request.Title.Trim()),
-                ("@description", request.Description?.Trim()),
-                ("@taskType", request.TaskType?.Trim()),
-                ("@departmentId", request.DepartmentId),
-                ("@priorityId", request.PriorityId),
-                ("@actorUserId", actorUserId),
-                ("@startDate", request.StartDate),
-                ("@dueDate", request.DueDate),
-                ("@source", request.Source?.Trim()),
-                ("@urgencyLevel", request.UrgencyLevel?.Trim()),
-                ("@securityLevel", request.SecurityLevel?.Trim()),
-                ("@isConfidential", IsConfidential(request.SecurityLevel)),
-                ("@estimatedHours", request.EstimatedHours)
-            ],
-            cancellationToken);
-
-        if (request.AssigneeId is not null)
+        return await ExecuteInTransactionAsync(async () =>
         {
-            await AddTaskAssignmentAsync(taskId, request.AssigneeId.Value, "assignee", actorUserId, cancellationToken);
-        }
+            var taskId = await ExecuteScalarAsync<Guid>(sql,
+                [
+                    ("@code", code),
+                    ("@projectId", request.ProjectId),
+                    ("@parentTaskId", request.ParentTaskId),
+                    ("@title", request.Title.Trim()),
+                    ("@description", request.Description?.Trim()),
+                    ("@taskType", request.TaskType?.Trim()),
+                    ("@departmentId", request.DepartmentId),
+                    ("@priorityId", request.PriorityId),
+                    ("@actorUserId", actorUserId),
+                    ("@startDate", request.StartDate),
+                    ("@dueDate", request.DueDate),
+                    ("@source", request.Source?.Trim()),
+                    ("@urgencyLevel", request.UrgencyLevel?.Trim()),
+                    ("@securityLevel", request.SecurityLevel?.Trim()),
+                    ("@isConfidential", IsConfidential(request.SecurityLevel)),
+                    ("@estimatedHours", request.EstimatedHours)
+                ],
+                cancellationToken);
 
-        foreach (var userId in collaborators)
-        {
-            await AddTaskAssignmentAsync(taskId, userId, "co_assignee", actorUserId, cancellationToken);
-        }
+            if (request.AssigneeId is not null)
+            {
+                await AddTaskAssignmentAsync(taskId, request.AssigneeId.Value, "assignee", actorUserId, cancellationToken);
+            }
 
-        foreach (var userId in watchers)
-        {
-            await AddTaskAssignmentAsync(taskId, userId, "watcher", actorUserId, cancellationToken);
-        }
+            foreach (var userId in collaborators)
+            {
+                await AddTaskAssignmentAsync(taskId, userId, "co_assignee", actorUserId, cancellationToken);
+            }
 
-        foreach (var tag in NormalizeTags(request.Tags))
-        {
-            await AddTaskTagAsync(taskId, tag, cancellationToken);
-        }
+            foreach (var userId in watchers)
+            {
+                await AddTaskAssignmentAsync(taskId, userId, "watcher", actorUserId, cancellationToken);
+            }
 
-        return new TaskCreateResult(TaskCommandResult.Success, taskId);
+            foreach (var tag in NormalizeTags(request.Tags))
+            {
+                await AddTaskTagAsync(taskId, tag, cancellationToken);
+            }
+
+            return new TaskCreateResult(TaskCommandResult.Success, taskId);
+        }, cancellationToken);
     }
 
     public async Task<TaskCommandResult> UpdateAsync(Guid actorUserId, Guid taskId, UpdateTaskRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists)
         {
             return TaskCommandResult.NotFound;
@@ -104,7 +108,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
         if (request.AssigneeId is not null
             && request.AssigneeId.Value != actorUserId
-            && !await taskAccessReader.HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
+            && !await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskAssign, cancellationToken))
         {
             return TaskCommandResult.Forbidden;
         }
@@ -127,77 +131,80 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
         var progress = TaskProgressPolicy.Normalize(request.Progress);
 
-        var affected = await ExecuteAsync(
-            """
-            UPDATE tasks
-            SET title = @title,
-                description = @description,
-                task_type = @taskType,
-                project_id = @projectId,
-                parent_task_id = @parentTaskId,
-                department_id = @departmentId,
-                status_id = @statusId,
-                priority_id = @priorityId,
-                start_date = @startDate,
-                due_date = @dueDate,
-                progress = @progress,
-                estimated_hours = @estimatedHours,
-                actual_hours = @actualHours,
-                completed_at = CASE
-                    WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
-                    WHEN @statusId IS NOT NULL THEN NULL
-                    ELSE completed_at
-                END,
-                closed_at = CASE
-                    WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
-                    WHEN @statusId IS NOT NULL THEN NULL
-                    ELSE closed_at
-                END,
-                source = @source,
-                urgency_level = @urgencyLevel,
-                security_level = @securityLevel,
-                updated_at = now()
-            WHERE id = @taskId;
-            """,
-            [
-                ("@title", request.Title.Trim()),
-                ("@description", request.Description?.Trim()),
-                ("@taskType", request.TaskType?.Trim()),
-                ("@projectId", request.ProjectId),
-                ("@parentTaskId", request.ParentTaskId),
-                ("@departmentId", request.DepartmentId),
-                ("@statusId", request.StatusId),
-                ("@priorityId", request.PriorityId),
-                ("@startDate", request.StartDate),
-                ("@dueDate", request.DueDate),
-                ("@progress", progress),
-                ("@estimatedHours", request.EstimatedHours),
-                ("@actualHours", request.ActualHours),
-                ("@completedStatusId", TaskStatusIds.Completed),
-                ("@closedStatusId", TaskStatusIds.Closed),
-                ("@source", request.Source?.Trim()),
-                ("@urgencyLevel", request.UrgencyLevel?.Trim()),
-                ("@securityLevel", request.SecurityLevel?.Trim()),
-                ("@taskId", taskId)
-            ],
-            cancellationToken);
-
-        if (affected == 0)
+        return await ExecuteInTransactionAsync(async () =>
         {
-            return TaskCommandResult.NotFound;
-        }
+            var affected = await ExecuteAsync(
+                """
+                UPDATE tasks
+                SET title = @title,
+                    description = @description,
+                    task_type = @taskType,
+                    project_id = @projectId,
+                    parent_task_id = @parentTaskId,
+                    department_id = @departmentId,
+                    status_id = @statusId,
+                    priority_id = @priorityId,
+                    start_date = @startDate,
+                    due_date = @dueDate,
+                    progress = @progress,
+                    estimated_hours = @estimatedHours,
+                    actual_hours = @actualHours,
+                    completed_at = CASE
+                        WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
+                        WHEN @statusId IS NOT NULL THEN NULL
+                        ELSE completed_at
+                    END,
+                    closed_at = CASE
+                        WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
+                        WHEN @statusId IS NOT NULL THEN NULL
+                        ELSE closed_at
+                    END,
+                    source = @source,
+                    urgency_level = @urgencyLevel,
+                    security_level = @securityLevel,
+                    updated_at = now()
+                WHERE id = @taskId;
+                """,
+                [
+                    ("@title", request.Title.Trim()),
+                    ("@description", request.Description?.Trim()),
+                    ("@taskType", request.TaskType?.Trim()),
+                    ("@projectId", request.ProjectId),
+                    ("@parentTaskId", request.ParentTaskId),
+                    ("@departmentId", request.DepartmentId),
+                    ("@statusId", request.StatusId),
+                    ("@priorityId", request.PriorityId),
+                    ("@startDate", request.StartDate),
+                    ("@dueDate", request.DueDate),
+                    ("@progress", progress),
+                    ("@estimatedHours", request.EstimatedHours),
+                    ("@actualHours", request.ActualHours),
+                    ("@completedStatusId", TaskStatusIds.Completed),
+                    ("@closedStatusId", TaskStatusIds.Closed),
+                    ("@source", request.Source?.Trim()),
+                    ("@urgencyLevel", request.UrgencyLevel?.Trim()),
+                    ("@securityLevel", request.SecurityLevel?.Trim()),
+                    ("@taskId", taskId)
+                ],
+                cancellationToken);
 
-        await ReplaceSingleAssignmentAsync(taskId, request.AssigneeId, "assignee", actorUserId, cancellationToken);
-        await ReplaceAssignmentsAsync(taskId, request.CollaboratorIds, "co_assignee", actorUserId, cancellationToken);
-        await ReplaceAssignmentsAsync(taskId, request.WatcherIds, "watcher", actorUserId, cancellationToken);
-        await ReplaceTagsAsync(taskId, request.Tags, cancellationToken);
+            if (affected == 0)
+            {
+                return TaskCommandResult.NotFound;
+            }
 
-        return TaskCommandResult.Success;
+            await ReplaceSingleAssignmentAsync(taskId, request.AssigneeId, "assignee", actorUserId, cancellationToken);
+            await ReplaceAssignmentsAsync(taskId, request.CollaboratorIds, "co_assignee", actorUserId, cancellationToken);
+            await ReplaceAssignmentsAsync(taskId, request.WatcherIds, "watcher", actorUserId, cancellationToken);
+            await ReplaceTagsAsync(taskId, request.Tags, cancellationToken);
+
+            return TaskCommandResult.Success;
+        }, cancellationToken);
     }
 
     public async Task<TaskCommandResult> UpdateStatusAsync(Guid actorUserId, Guid taskId, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists)
         {
             return TaskCommandResult.NotFound;
@@ -220,66 +227,72 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             return transitionResult;
         }
 
-        var affected = await ExecuteAsync(
-            """
-            UPDATE tasks
-            SET status_id = @statusId,
-                completed_at = CASE
-                    WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
-                    WHEN @statusId <> @closedStatusId THEN NULL
-                    ELSE completed_at
-                END,
-                closed_at = CASE
-                    WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
-                    WHEN @statusId <> @closedStatusId THEN NULL
-                    ELSE closed_at
-                END,
-                updated_at = now()
-            WHERE id = @taskId;
-            """,
-            [
-                ("@statusId", request.StatusId),
-                ("@completedStatusId", TaskStatusIds.Completed),
-                ("@closedStatusId", TaskStatusIds.Closed),
-                ("@taskId", taskId)
-            ],
-            cancellationToken);
-
-        if (affected > 0 && !string.IsNullOrWhiteSpace(request.Note))
+        return await ExecuteInTransactionAsync(async () =>
         {
-            await AddCommentAsync(actorUserId, taskId, new AddTaskCommentRequest(request.Note), cancellationToken);
-        }
+            var affected = await ExecuteAsync(
+                """
+                UPDATE tasks
+                SET status_id = @statusId,
+                    completed_at = CASE
+                        WHEN @statusId IN (@completedStatusId, @closedStatusId) THEN COALESCE(completed_at, now())
+                        WHEN @statusId <> @closedStatusId THEN NULL
+                        ELSE completed_at
+                    END,
+                    closed_at = CASE
+                        WHEN @statusId = @closedStatusId THEN COALESCE(closed_at, now())
+                        WHEN @statusId <> @closedStatusId THEN NULL
+                        ELSE closed_at
+                    END,
+                    updated_at = now()
+                WHERE id = @taskId;
+                """,
+                [
+                    ("@statusId", request.StatusId),
+                    ("@completedStatusId", TaskStatusIds.Completed),
+                    ("@closedStatusId", TaskStatusIds.Closed),
+                    ("@taskId", taskId)
+                ],
+                cancellationToken);
 
-        return affected > 0 ? TaskCommandResult.Success : TaskCommandResult.NotFound;
+            if (affected > 0 && !string.IsNullOrWhiteSpace(request.Note))
+            {
+                await AddCommentAsync(actorUserId, taskId, new AddTaskCommentRequest(request.Note), cancellationToken);
+            }
+
+            return affected > 0 ? TaskCommandResult.Success : TaskCommandResult.NotFound;
+        }, cancellationToken);
     }
 
     public async Task<TaskCommandResult> TransferAssigneeAsync(Guid actorUserId, Guid taskId, TransferTaskAssigneeRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists)
         {
             return TaskCommandResult.NotFound;
         }
 
-        if (!access.CanAccess || !access.HasPermission || !await taskAccessReader.HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
+        if (!access.CanAccess || !access.HasPermission || !await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskAssign, cancellationToken))
         {
             return TaskCommandResult.Forbidden;
         }
 
-        await ReplaceSingleAssignmentAsync(taskId, request.AssigneeId, "assignee", actorUserId, cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(request.Reason))
+        return await ExecuteInTransactionAsync(async () =>
         {
-            await AddCommentAsync(actorUserId, taskId, new AddTaskCommentRequest($"Transfer assignee: {request.Reason.Trim()}"), cancellationToken);
-        }
+            await ReplaceSingleAssignmentAsync(taskId, request.AssigneeId, "assignee", actorUserId, cancellationToken);
 
-        await TouchTaskAsync(taskId, cancellationToken);
-        return TaskCommandResult.Success;
+            if (!string.IsNullOrWhiteSpace(request.Reason))
+            {
+                await AddCommentAsync(actorUserId, taskId, new AddTaskCommentRequest($"Transfer assignee: {request.Reason.Trim()}"), cancellationToken);
+            }
+
+            await TouchTaskAsync(taskId, cancellationToken);
+            return TaskCommandResult.Success;
+        }, cancellationToken);
     }
 
     public async Task<TaskCreateResult> DuplicateAsync(Guid actorUserId, Guid taskId, DuplicateTaskRequest request, CancellationToken cancellationToken)
     {
-        if (!await taskAccessReader.HasPermissionAsync(actorUserId, "task.create", cancellationToken))
+        if (!await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskCreate, cancellationToken))
         {
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
@@ -305,74 +318,77 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             RETURNING id;
             """;
 
-        var duplicatedId = await ExecuteScalarAsync<Guid>(sql,
-            [
-                ("@code", code),
-                ("@title", request.Title?.Trim()),
-                ("@actorUserId", actorUserId),
-                ("@taskId", taskId)
-            ],
-            cancellationToken);
-
-        if (duplicatedId == Guid.Empty)
+        return await ExecuteInTransactionAsync(async () =>
         {
-            return new TaskCreateResult(TaskCommandResult.NotFound);
-        }
+            var duplicatedId = await ExecuteScalarAsync<Guid>(sql,
+                [
+                    ("@code", code),
+                    ("@title", request.Title?.Trim()),
+                    ("@actorUserId", actorUserId),
+                    ("@taskId", taskId)
+                ],
+                cancellationToken);
 
-        if (!request.ResetPeople)
-        {
+            if (duplicatedId == Guid.Empty)
+            {
+                return new TaskCreateResult(TaskCommandResult.NotFound);
+            }
+
+            if (!request.ResetPeople)
+            {
+                await ExecuteAsync(
+                    """
+                    INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
+                    SELECT @duplicatedId, user_id, assignment_type, @actorUserId
+                    FROM task_assignments
+                    WHERE task_id = @taskId
+                    ON CONFLICT DO NOTHING;
+                    """,
+                    [("@duplicatedId", duplicatedId), ("@actorUserId", actorUserId), ("@taskId", taskId)],
+                    cancellationToken);
+
+                await ExecuteAsync(
+                    """
+                    INSERT INTO subtasks (task_id, title, assignee_id, status, due_date, progress, done, sort_order)
+                    SELECT @duplicatedId, title, assignee_id, status, due_date, 0, FALSE, sort_order
+                    FROM subtasks
+                    WHERE task_id = @taskId;
+                    """,
+                    [("@duplicatedId", duplicatedId), ("@taskId", taskId)],
+                    cancellationToken);
+            }
+
             await ExecuteAsync(
                 """
-                INSERT INTO task_assignments (task_id, user_id, assignment_type, assigned_by)
-                SELECT @duplicatedId, user_id, assignment_type, @actorUserId
-                FROM task_assignments
+                INSERT INTO task_tags (task_id, tag_id)
+                SELECT @duplicatedId, tag_id
+                FROM task_tags
                 WHERE task_id = @taskId
                 ON CONFLICT DO NOTHING;
                 """,
-                [("@duplicatedId", duplicatedId), ("@actorUserId", actorUserId), ("@taskId", taskId)],
-                cancellationToken);
-
-            await ExecuteAsync(
-                """
-                INSERT INTO subtasks (task_id, title, assignee_id, status, due_date, progress, done, sort_order)
-                SELECT @duplicatedId, title, assignee_id, status, due_date, 0, FALSE, sort_order
-                FROM subtasks
-                WHERE task_id = @taskId;
-                """,
                 [("@duplicatedId", duplicatedId), ("@taskId", taskId)],
                 cancellationToken);
-        }
 
-        await ExecuteAsync(
-            """
-            INSERT INTO task_tags (task_id, tag_id)
-            SELECT @duplicatedId, tag_id
-            FROM task_tags
-            WHERE task_id = @taskId
-            ON CONFLICT DO NOTHING;
-            """,
-            [("@duplicatedId", duplicatedId), ("@taskId", taskId)],
-            cancellationToken);
+            if (!request.ResetAttachments)
+            {
+                await ExecuteAsync(
+                    """
+                    INSERT INTO attachments (task_id, file_name, file_url, content_type, file_size, uploaded_by)
+                    SELECT @duplicatedId, file_name, file_url, content_type, file_size, @actorUserId
+                    FROM attachments
+                    WHERE task_id = @taskId;
+                    """,
+                    [("@duplicatedId", duplicatedId), ("@actorUserId", actorUserId), ("@taskId", taskId)],
+                    cancellationToken);
+            }
 
-        if (!request.ResetAttachments)
-        {
-            await ExecuteAsync(
-                """
-                INSERT INTO attachments (task_id, file_name, file_url, content_type, file_size, uploaded_by)
-                SELECT @duplicatedId, file_name, file_url, content_type, file_size, @actorUserId
-                FROM attachments
-                WHERE task_id = @taskId;
-                """,
-                [("@duplicatedId", duplicatedId), ("@actorUserId", actorUserId), ("@taskId", taskId)],
-                cancellationToken);
-        }
-
-        return new TaskCreateResult(TaskCommandResult.Success, duplicatedId);
+            return new TaskCreateResult(TaskCommandResult.Success, duplicatedId);
+        }, cancellationToken);
     }
 
     public async Task<TaskCreateResult> AddCommentAsync(Guid actorUserId, Guid taskId, AddTaskCommentRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "comment.create", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.CommentCreate, cancellationToken);
         if (!access.Exists)
         {
             return new TaskCreateResult(TaskCommandResult.NotFound);
@@ -423,7 +439,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
     public async Task<TaskCommandResult> ReviewExtensionAsync(Guid actorUserId, Guid taskId, Guid requestId, ReviewTaskExtensionRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists || !await ExtensionRequestExistsAsync(taskId, requestId, cancellationToken))
         {
             return TaskCommandResult.NotFound;
@@ -434,56 +450,59 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
             return TaskCommandResult.Forbidden;
         }
 
-        var affected = await ExecuteAsync(
-            """
-            UPDATE task_extension_requests
-            SET status = CASE WHEN @approved THEN 'approved'::public.extension_request_status ELSE 'rejected'::public.extension_request_status END,
-                reviewed_by_user_id = @actorUserId,
-                reviewed_at = now(),
-                review_note = @reviewNote
-            WHERE id = @requestId AND task_id = @taskId AND status = 'pending';
-            """,
-            [
-                ("@approved", request.Approved),
-                ("@actorUserId", actorUserId),
-                ("@reviewNote", request.ReviewNote?.Trim()),
-                ("@requestId", requestId),
-                ("@taskId", taskId)
-            ],
-            cancellationToken);
-
-        if (affected == 0)
+        return await ExecuteInTransactionAsync(async () =>
         {
-            return TaskCommandResult.NotFound;
-        }
-
-        if (request.Approved)
-        {
-            await ExecuteAsync(
+            var affected = await ExecuteAsync(
                 """
-                UPDATE tasks
-                SET due_date = (
-                    SELECT requested_due_date
-                    FROM task_extension_requests
-                    WHERE id = @requestId AND task_id = @taskId
-                ),
-                updated_at = now()
-                WHERE id = @taskId;
+                UPDATE task_extension_requests
+                SET status = CASE WHEN @approved THEN 'approved'::public.extension_request_status ELSE 'rejected'::public.extension_request_status END,
+                    reviewed_by_user_id = @actorUserId,
+                    reviewed_at = now(),
+                    review_note = @reviewNote
+                WHERE id = @requestId AND task_id = @taskId AND status = 'pending';
                 """,
-                [("@requestId", requestId), ("@taskId", taskId)],
+                [
+                    ("@approved", request.Approved),
+                    ("@actorUserId", actorUserId),
+                    ("@reviewNote", request.ReviewNote?.Trim()),
+                    ("@requestId", requestId),
+                    ("@taskId", taskId)
+                ],
                 cancellationToken);
-        }
-        else
-        {
-            await TouchTaskAsync(taskId, cancellationToken);
-        }
 
-        return TaskCommandResult.Success;
+            if (affected == 0)
+            {
+                return TaskCommandResult.NotFound;
+            }
+
+            if (request.Approved)
+            {
+                await ExecuteAsync(
+                    """
+                    UPDATE tasks
+                    SET due_date = (
+                        SELECT requested_due_date
+                        FROM task_extension_requests
+                        WHERE id = @requestId AND task_id = @taskId
+                    ),
+                    updated_at = now()
+                    WHERE id = @taskId;
+                    """,
+                    [("@requestId", requestId), ("@taskId", taskId)],
+                    cancellationToken);
+            }
+            else
+            {
+                await TouchTaskAsync(taskId, cancellationToken);
+            }
+
+            return TaskCommandResult.Success;
+        }, cancellationToken);
     }
 
     public async Task<TaskCreateResult> CreateSubTaskAsync(Guid actorUserId, Guid taskId, CreateSubTaskRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists)
         {
             return new TaskCreateResult(TaskCommandResult.NotFound);
@@ -518,7 +537,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
     public async Task<TaskCommandResult> UpdateSubTaskAsync(Guid actorUserId, Guid taskId, Guid subTaskId, UpdateSubTaskRequest request, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists || !await SubTaskExistsAsync(taskId, subTaskId, cancellationToken))
         {
             return TaskCommandResult.NotFound;
@@ -558,7 +577,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
     public async Task<TaskCommandResult> DeleteSubTaskAsync(Guid actorUserId, Guid taskId, Guid subTaskId, CancellationToken cancellationToken)
     {
-        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, "task.update", cancellationToken);
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
         if (!access.Exists || !await SubTaskExistsAsync(taskId, subTaskId, cancellationToken))
         {
             return TaskCommandResult.NotFound;
@@ -744,7 +763,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
     {
         var isClosedReopen = currentStatusId == TaskStatusIds.Closed && nextStatusId == TaskStatusIds.InProgress;
         var allowClosedReopen = isClosedReopen
-            && await taskAccessReader.HasPermissionAsync(actorUserId, "task.reopen", cancellationToken);
+            && await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskReopen, cancellationToken);
 
         if (!TaskWorkflowPolicy.CanTransition(currentStatusId, nextStatusId, allowClosedReopen))
         {
@@ -752,7 +771,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         }
 
         if (nextStatusId == TaskStatusIds.Closed
-            && !await taskAccessReader.HasPermissionAsync(actorUserId, "task.close", cancellationToken))
+            && !await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskClose, cancellationToken))
         {
             return TaskCommandResult.Forbidden;
         }

@@ -1,3 +1,5 @@
+using EnterpriseTask.Application.Common;
+
 namespace EnterpriseTask.Application.Tasks;
 
 public sealed class CreateTaskHandler(ITaskCommands taskCommands, ITaskPolicyQueries taskPolicyQueries)
@@ -7,7 +9,7 @@ public sealed class CreateTaskHandler(ITaskCommands taskCommands, ITaskPolicyQue
         CreateTaskRequest request,
         CancellationToken cancellationToken)
     {
-        if (!await taskPolicyQueries.HasPermissionAsync(actorUserId, "task.create", cancellationToken))
+        if (!await taskPolicyQueries.HasPermissionAsync(actorUserId, PermissionCodes.TaskCreate, cancellationToken))
         {
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }
@@ -23,7 +25,7 @@ public sealed class CreateTaskHandler(ITaskCommands taskCommands, ITaskPolicyQue
             || NormalizeUserIds(request.WatcherIds).Length > 0;
 
         if (requiresAssignPermission
-            && !await taskPolicyQueries.HasPermissionAsync(actorUserId, "task.assign", cancellationToken))
+            && !await taskPolicyQueries.HasPermissionAsync(actorUserId, PermissionCodes.TaskAssign, cancellationToken))
         {
             return new TaskCreateResult(TaskCommandResult.Forbidden);
         }

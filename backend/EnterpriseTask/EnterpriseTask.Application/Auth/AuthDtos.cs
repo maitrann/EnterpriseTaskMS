@@ -2,6 +2,10 @@ namespace EnterpriseTask.Application.Auth;
 
 public sealed record LoginRequest(string Email, string Password);
 
+public sealed record RefreshTokenRequest(string RefreshToken);
+
+public sealed record LogoutRequest(string RefreshToken);
+
 public sealed record AuthUserDto(
     Guid Id,
     string Username,
@@ -13,4 +17,4 @@ public sealed record AuthUserDto(
     bool IsActive,
     DateTimeOffset CreatedAt);
 
-public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, AuthUserDto User);
+public sealed record LoginResponse(string AccessToken, DateTimeOffset ExpiresAt, AuthUserDto User, string RefreshToken);

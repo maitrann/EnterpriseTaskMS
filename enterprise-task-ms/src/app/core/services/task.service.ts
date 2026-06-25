@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 
 import {
   TASK_STATUS_IDS,
@@ -26,10 +26,12 @@ export class TaskService {
   private readonly authService = inject(AuthService);
   private readonly taskApi = inject(TaskApiClient);
   private readonly taskState = inject(TaskStateStore);
+  private pendingTaskRollback?: { tasks: Task[]; activities: TaskActivity[] };
 
   readonly tasks = this.taskState.tasks;
   readonly activities = this.taskState.activities;
   readonly formOptions = this.taskState.formOptions;
+  readonly mutationError = signal<string | null>(null);
 
   readonly activeTasks = computed(() =>
     this.tasks().filter((task) => !TASK_TERMINAL_STATUS_IDS.includes(task.statusId ?? -1))
@@ -78,6 +80,8 @@ export class TaskService {
   }
 
   createTask(input: CreateTaskInput) {
+    const rollbackTasks = this.tasks();
+    const rollbackActivities = this.activities();
     const nextId = this.createLocalId();
     const now = new Date();
     const nextTask: Task = {
@@ -127,7 +131,8 @@ export class TaskService {
       ...activities
     ]);
 
-    void this.taskApi
+    this.persistTaskMutation(
+      this.taskApi
       .createTask({
         title: input.title,
         description: input.description,
@@ -146,9 +151,10 @@ export class TaskService {
         collaboratorIds: input.collaboratorIds,
         watcherIds: input.watcherIds,
         tags: input.tags
-      })
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+      }),
+      rollbackTasks,
+      rollbackActivities
+    );
 
     return nextTask;
   }
@@ -249,14 +255,14 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .requestExtension(taskId, {
           requestedDueDate: this.toApiDate(dueDate),
           reason: note,
           requestedByUserId: this.authService.user()?.id ?? 1
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -313,14 +319,14 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .reviewExtension(taskId, requestId, {
           approved: true,
           reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -373,14 +379,14 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .reviewExtension(taskId, requestId, {
           approved: false,
           reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -415,10 +421,7 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
-        .transferAssignee(taskId, { assigneeId, reason: note })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      this.persistTaskMutation(this.taskApi.transferAssignee(taskId, { assigneeId, reason: note }));
     }
 
     return result;
@@ -474,15 +477,15 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .createSubtask(taskId, {
           title,
           assigneeId: input.assigneeId,
           dueDate: this.toApiDate(input.dueDate),
           progress
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -547,7 +550,8 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .updateSubtask(taskId, subtaskId, {
           title,
           assigneeId: changes.assigneeId === undefined ? subtask.assigneeId : changes.assigneeId,
@@ -555,8 +559,7 @@ export class TaskService {
           progress,
           done: progress === 100
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -604,13 +607,13 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .updateSubtask(taskId, subtaskId, {
           progress: nextDone ? 100 : 0,
           done: nextDone
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -647,10 +650,7 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
-        .deleteSubtask(taskId, subtaskId)
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      this.persistTaskMutation(this.taskApi.deleteSubtask(taskId, subtaskId));
     }
 
     return result;
@@ -778,12 +778,12 @@ export class TaskService {
     );
 
     if (result.success) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .addComment(taskId, {
           content: note
         })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+      );
     }
 
     return result;
@@ -892,17 +892,23 @@ export class TaskService {
       updatedAt: new Date()
     };
 
+    const rollbackTasks = this.tasks();
+    const rollbackActivities = this.activities();
+
+    this.pendingTaskRollback = { tasks: rollbackTasks, activities: rollbackActivities };
     this.tasks.update((tasks) => tasks.map((item) => (item.id === task.id ? updatedTask : item)));
     this.recordActivity(task.id, actionType, oldValue, newValue);
 
     if (task.statusId !== updatedTask.statusId && updatedTask.statusId) {
-      void this.taskApi
+      this.persistTaskMutation(
+        this.taskApi
         .updateStatus(task.id, {
           statusId: updatedTask.statusId,
           note: newValue
-        })
-        .then(() => this.loadFromApi())
-        .catch(() => undefined);
+        }),
+        rollbackTasks,
+        rollbackActivities
+      );
     }
 
     return {
@@ -951,9 +957,22 @@ export class TaskService {
       updatedAt: now
     };
 
+    const rollbackTasks = this.tasks();
+    const rollbackActivities = this.activities();
+
     this.tasks.update((tasks) => [clonedTask, ...tasks]);
     this.recordActivity(task.id, options.actionType, task.code, clonedTask.code);
     this.recordActivity(clonedTask.id, 'CREATE_TASK', undefined, clonedTask.title);
+
+    this.persistTaskMutation(
+      this.taskApi.duplicateTask(task.id, {
+        title: options.title,
+        resetPeople: options.resetPeople ?? false,
+        resetAttachments: options.resetAttachments ?? false
+      }),
+      rollbackTasks,
+      rollbackActivities
+    );
 
     return {
       success: true,
@@ -1190,6 +1209,26 @@ export class TaskService {
       success: false,
       message: 'Không tìm thấy công việc.'
     };
+  }
+
+  private persistTaskMutation(
+    operation: Promise<unknown>,
+    rollbackTasks?: Task[],
+    rollbackActivities?: TaskActivity[]
+  ) {
+    const rollback = {
+      tasks: rollbackTasks ?? this.pendingTaskRollback?.tasks ?? this.tasks(),
+      activities: rollbackActivities ?? this.pendingTaskRollback?.activities ?? this.activities()
+    };
+    this.pendingTaskRollback = undefined;
+    this.mutationError.set(null);
+    void operation
+      .then(() => this.loadFromApi())
+      .catch(() => {
+        this.tasks.set(rollback.tasks);
+        this.activities.set(rollback.activities);
+        this.mutationError.set('Thao tác chưa được lưu vì API từ chối hoặc mất kết nối. Trạng thái đã được hoàn tác.');
+      });
   }
 
   private formatDate(value: Date) {

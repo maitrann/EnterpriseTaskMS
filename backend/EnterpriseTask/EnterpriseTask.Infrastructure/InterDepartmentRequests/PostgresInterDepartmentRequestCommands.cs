@@ -172,23 +172,26 @@ public sealed class PostgresInterDepartmentRequestCommands(ApplicationDbContext 
             RETURNING id;
             """;
 
-        var id = await ExecuteScalarAsync<Guid>(sql,
-            [
-                ("@requestId", requestId),
-                ("@authorUserId", scope.UserId),
-                ("@authorName", authorName),
-                ("@authorRole", authorRole),
-                ("@authorDepartment", authorDepartment),
-                ("@body", request.Body.Trim())
-            ],
-            cancellationToken);
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            var id = await ExecuteScalarAsync<Guid>(sql,
+                [
+                    ("@requestId", requestId),
+                    ("@authorUserId", scope.UserId),
+                    ("@authorName", authorName),
+                    ("@authorRole", authorRole),
+                    ("@authorDepartment", authorDepartment),
+                    ("@body", request.Body.Trim())
+                ],
+                cancellationToken);
 
-        await ExecuteAsync(
-            "UPDATE inter_department_requests SET latest_message = @body, updated_at = now() WHERE id = @requestId;",
-            [("@requestId", requestId), ("@body", request.Body.Trim())],
-            cancellationToken);
+            await ExecuteAsync(
+                "UPDATE inter_department_requests SET latest_message = @body, updated_at = now() WHERE id = @requestId;",
+                [("@requestId", requestId), ("@body", request.Body.Trim())],
+                cancellationToken);
 
-        return new InterDepartmentRequestCreateResult(InterDepartmentRequestCommandResult.Success, id);
+            return new InterDepartmentRequestCreateResult(InterDepartmentRequestCommandResult.Success, id);
+        }, cancellationToken);
     }
 
     public async Task<InterDepartmentRequestCommandResult> CloseAsync(UserScope scope, Guid requestId, CancellationToken cancellationToken)

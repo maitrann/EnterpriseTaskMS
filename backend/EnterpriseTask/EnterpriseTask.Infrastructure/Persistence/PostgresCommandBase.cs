@@ -1,16 +1,44 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EnterpriseTask.Infrastructure.Persistence;
 
-public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
+public abstract class PostgresCommandBase : PostgresQueryBase
 {
+    protected PostgresCommandBase(ApplicationDbContext dbContext) : base(dbContext)
+    {
+    }
+
+    protected async Task<T> ExecuteInTransactionAsync<T>(
+        Func<Task<T>> action,
+        CancellationToken cancellationToken)
+    {
+        if (DbContext.Database.CurrentTransaction is not null)
+        {
+            return await action();
+        }
+
+        await using var transaction = await DbContext.Database.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var result = await action();
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        }
+        catch
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
     protected async Task<T?> ExecuteScalarAsync<T>(
         string sql,
         IReadOnlyList<(string Name, object? Value)> parameters,
         CancellationToken cancellationToken)
     {
-        var connection = dbContext.Database.GetDbConnection();
+        var connection = DbContext.Database.GetDbConnection();
         var shouldClose = connection.State == ConnectionState.Closed;
 
         if (shouldClose)
@@ -22,6 +50,7 @@ public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = sql;
+            command.Transaction = DbContext.Database.CurrentTransaction?.GetDbTransaction();
             AddParameters(command, parameters);
 
             var result = await command.ExecuteScalarAsync(cancellationToken);
@@ -52,7 +81,7 @@ public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
         IReadOnlyList<(string Name, object? Value)> parameters,
         CancellationToken cancellationToken)
     {
-        var connection = dbContext.Database.GetDbConnection();
+        var connection = DbContext.Database.GetDbConnection();
         var shouldClose = connection.State == ConnectionState.Closed;
 
         if (shouldClose)
@@ -64,6 +93,7 @@ public abstract class PostgresCommandBase(ApplicationDbContext dbContext)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = sql;
+            command.Transaction = DbContext.Database.CurrentTransaction?.GetDbTransaction();
             AddParameters(command, parameters);
             return await command.ExecuteNonQueryAsync(cancellationToken);
         }

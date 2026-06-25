@@ -38,6 +38,7 @@ export class InterDepartmentRequestService {
   readonly slaPolicies: RequestSlaPolicy[];
   readonly mockUsers: MockAuthUser[];
   readonly requests = signal<InterDepartmentRequest[]>([]);
+  readonly mutationError = signal<string | null>(null);
 
   readonly requestTypeOptions = computed(() =>
     this.slaPolicies.map((policy) => ({
@@ -136,8 +137,9 @@ export class InterDepartmentRequestService {
       ]
     };
 
+    const rollbackRequests = this.requests();
     this.requests.update((requests) => [newRequest, ...requests]);
-    void firstValueFrom(
+    this.persistRequestMutation(firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests`, {
         type: payload.type,
         title: payload.title,
@@ -149,9 +151,7 @@ export class InterDepartmentRequestService {
         formValues: payload.formValues,
         note: payload.note
       })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    ), rollbackRequests);
 
     return { success: true };
   }
@@ -172,6 +172,7 @@ export class InterDepartmentRequestService {
     }
 
     const now = new Date();
+    const rollbackRequests = this.requests();
     this.requests.update((requests) =>
       requests.map((item) =>
         item.id === requestId
@@ -198,9 +199,10 @@ export class InterDepartmentRequestService {
       )
     );
 
-    void firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/acknowledge`, {}))
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    this.persistRequestMutation(
+      firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/acknowledge`, {})),
+      rollbackRequests
+    );
 
     return { success: true };
   }
@@ -226,6 +228,7 @@ export class InterDepartmentRequestService {
     }
 
     const now = new Date();
+    const rollbackRequests = this.requests();
     this.requests.update((requests) =>
       requests.map((item) =>
         item.id === requestId
@@ -253,13 +256,11 @@ export class InterDepartmentRequestService {
       )
     );
 
-    void firstValueFrom(
+    this.persistRequestMutation(firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/assign-owner`, {
         ownerId
       })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    ), rollbackRequests);
 
     return { success: true };
   }
@@ -287,6 +288,7 @@ export class InterDepartmentRequestService {
     }
 
     const now = new Date();
+    const rollbackRequests = this.requests();
     this.requests.update((requests) =>
       requests.map((item) =>
         item.id === requestId
@@ -301,11 +303,9 @@ export class InterDepartmentRequestService {
       )
     );
 
-    void firstValueFrom(
+    this.persistRequestMutation(firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/status`, { status })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    ), rollbackRequests);
 
     return { success: true };
   }
@@ -326,6 +326,7 @@ export class InterDepartmentRequestService {
     }
 
     const now = new Date();
+    const rollbackRequests = this.requests();
     this.requests.update((requests) =>
       requests.map((item) =>
         item.id === requestId
@@ -352,9 +353,10 @@ export class InterDepartmentRequestService {
       )
     );
 
-    void firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/close`, {}))
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    this.persistRequestMutation(
+      firstValueFrom(this.http.post(`${API_BASE_URL}/inter-department-requests/${requestId}/close`, {})),
+      rollbackRequests
+    );
 
     return { success: true };
   }
@@ -375,6 +377,7 @@ export class InterDepartmentRequestService {
       return { success: false, message: 'Tài khoản hiện tại không thuộc luồng xử lý của phiếu.' };
     }
 
+    const rollbackRequests = this.requests();
     this.requests.update((requests) =>
       requests.map((item) => {
         if (item.id !== payload.requestId) {
@@ -401,13 +404,11 @@ export class InterDepartmentRequestService {
       })
     );
 
-    void firstValueFrom(
+    this.persistRequestMutation(firstValueFrom(
       this.http.post(`${API_BASE_URL}/inter-department-requests/${payload.requestId}/messages`, {
         body: payload.body.trim()
       })
-    )
-      .then(() => this.loadFromApi())
-      .catch(() => undefined);
+    ), rollbackRequests);
 
     return { success: true };
   }
@@ -596,5 +597,15 @@ export class InterDepartmentRequestService {
     const minute = String(value.getMinutes()).padStart(2, '0');
 
     return `${day}/${month}/${year} ${hour}:${minute}`;
+  }
+
+  private persistRequestMutation(operation: Promise<unknown>, rollbackRequests: InterDepartmentRequest[]) {
+    this.mutationError.set(null);
+    void operation
+      .then(() => this.loadFromApi())
+      .catch(() => {
+        this.requests.set(rollbackRequests);
+        this.mutationError.set('Thao tác phiếu chưa được lưu vì API từ chối hoặc mất kết nối. Trạng thái đã được hoàn tác.');
+      });
   }
 }

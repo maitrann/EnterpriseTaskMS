@@ -3,7 +3,7 @@ import { Inject, Injectable, computed, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { API_BASE_URL, AUTH_STORAGE_KEY, AUTH_TOKEN_KEY } from '../constants/app.constants';
+import { API_BASE_URL, AUTH_REFRESH_TOKEN_KEY, AUTH_STORAGE_KEY, AUTH_TOKEN_KEY } from '../constants/app.constants';
 import { AUTH_DATA_SOURCE, AuthDataSource } from '../data-sources/auth.datasource';
 import { Task } from '../models/task.model';
 import { User } from '../models/user.model';
@@ -11,6 +11,7 @@ import { User } from '../models/user.model';
 type LoginResponse = {
   accessToken: string;
   expiresAt: string;
+  refreshToken: string;
   user: Omit<User, 'createdAt'> & { createdAt: string };
 };
 
@@ -44,6 +45,7 @@ export class AuthService {
       const user = this.normalizeUser(response.user);
 
       localStorage.setItem(AUTH_TOKEN_KEY, response.accessToken);
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, response.refreshToken);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
       this.user.set(user);
       this.router.navigate(['/dashboard']);
@@ -52,13 +54,21 @@ export class AuthService {
     } catch {
       return {
         success: false,
-        message: 'Khong dang nhap duoc API. Hay kiem tra backend dang chay va tai khoan seed hop le.'
+        message: 'Đăng nhập thất bại. Hãy kiểm tra lại thông tin đăng nhập.'
       };
     }
   }
 
-  logout() {
+  async logout() {
+    const refreshToken = localStorage.getItem(AUTH_REFRESH_TOKEN_KEY);
+    if (refreshToken) {
+      await firstValueFrom(
+        this.http.post(`${API_BASE_URL}/auth/logout`, { refreshToken })
+      ).catch(() => undefined);
+    }
+
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     this.user.set(null);
     this.router.navigate(['/login']);
@@ -68,8 +78,8 @@ export class AuthService {
     return {
       success: true,
       message: email
-        ? 'Neu email ton tai trong he thong, huong dan dat lai mat khau se duoc gui toi hop thu do.'
-        : 'Vui long nhap email can khoi phuc.'
+        ? 'Nếu email tồn tại trong hệ thống, hướng dẫn đặt lại mật khẩu sẽ được gửi tới hộp thư của bạn.'
+        : 'Vui lòng nhập email cần khôi phục.'
     };
   }
 

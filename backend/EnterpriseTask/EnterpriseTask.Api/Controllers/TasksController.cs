@@ -2,11 +2,12 @@ using EnterpriseTask.Application.Common;
 using EnterpriseTask.Application.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace EnterpriseTask.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicyNames.AuthenticatedUser)]
 [Route("api/tasks")]
 public sealed class TasksController(
     ITaskQueries taskQueries,
@@ -40,6 +41,7 @@ public sealed class TasksController(
     }
 
     [HttpPost]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> Create(CreateTaskRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -54,6 +56,7 @@ public sealed class TasksController(
     }
 
     [HttpPut("{id:guid}")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> Update(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -65,6 +68,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/status")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -76,6 +80,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/assignee")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> TransferAssignee(Guid id, TransferTaskAssigneeRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -87,6 +92,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/duplicate")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> Duplicate(Guid id, DuplicateTaskRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -99,6 +105,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/comments")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> AddComment(Guid id, AddTaskCommentRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -111,6 +118,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/extension-requests")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> RequestExtension(Guid id, CreateTaskExtensionRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -123,6 +131,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/extension-requests/{requestId:guid}/review")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> ReviewExtension(Guid id, Guid requestId, ReviewTaskExtensionRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -134,6 +143,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/subtasks")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> CreateSubTask(Guid id, CreateSubTaskRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -146,6 +156,7 @@ public sealed class TasksController(
     }
 
     [HttpPut("{id:guid}/subtasks/{subTaskId:guid}")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> UpdateSubTask(Guid id, Guid subTaskId, UpdateSubTaskRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -157,6 +168,7 @@ public sealed class TasksController(
     }
 
     [HttpDelete("{id:guid}/subtasks/{subTaskId:guid}")]
+    [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> DeleteSubTask(Guid id, Guid subTaskId, CancellationToken cancellationToken)
     {
         if (!TryGetActorId(out var actorUserId))
@@ -178,8 +190,14 @@ public sealed class TasksController(
         {
             TaskCommandResult.Success => NoContent(),
             TaskCommandResult.Forbidden => Forbid(),
-            TaskCommandResult.Conflict => Conflict(),
-            _ => NotFound()
+            TaskCommandResult.Conflict => Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Task mutation conflict",
+                detail: "The requested task change is not valid for the current task state."),
+            _ => Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Task not found",
+                detail: "The requested task or related resource was not found.")
         };
     }
 
@@ -189,8 +207,14 @@ public sealed class TasksController(
         {
             TaskCommandResult.Success => Ok(new { id = result.Id }),
             TaskCommandResult.Forbidden => Forbid(),
-            TaskCommandResult.Conflict => Conflict(),
-            _ => NotFound()
+            TaskCommandResult.Conflict => Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Task mutation conflict",
+                detail: "The requested task change is not valid for the current task state."),
+            _ => Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Task not found",
+                detail: "The requested task or related resource was not found.")
         };
     }
 }

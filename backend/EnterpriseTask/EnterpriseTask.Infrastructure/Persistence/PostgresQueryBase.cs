@@ -1,11 +1,19 @@
 using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EnterpriseTask.Infrastructure.Persistence;
 
-public abstract class PostgresQueryBase(ApplicationDbContext dbContext)
+public abstract class PostgresQueryBase
 {
+    protected PostgresQueryBase(ApplicationDbContext dbContext)
+    {
+        DbContext = dbContext;
+    }
+
+    protected ApplicationDbContext DbContext { get; }
+
     protected async Task<IReadOnlyList<T>> QueryAsync<T>(
         string sql,
         Func<DbDataReader, T> map,
@@ -20,7 +28,7 @@ public abstract class PostgresQueryBase(ApplicationDbContext dbContext)
         IReadOnlyList<(string Name, object? Value)> parameters,
         CancellationToken cancellationToken)
     {
-        var connection = dbContext.Database.GetDbConnection();
+        var connection = DbContext.Database.GetDbConnection();
         var shouldClose = connection.State == ConnectionState.Closed;
 
         if (shouldClose)
@@ -32,6 +40,7 @@ public abstract class PostgresQueryBase(ApplicationDbContext dbContext)
         {
             await using var command = connection.CreateCommand();
             command.CommandText = sql;
+            command.Transaction = DbContext.Database.CurrentTransaction?.GetDbTransaction();
             foreach (var (name, value) in parameters)
             {
                 var parameter = command.CreateParameter();

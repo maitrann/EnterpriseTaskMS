@@ -2,9 +2,11 @@ using EnterpriseTask.Api.Auth;
 using EnterpriseTask.Application.Common;
 using EnterpriseTask.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +41,39 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(2)
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthorizationPolicyNames.AuthenticatedUser, policy =>
+        policy.RequireAuthenticatedUser());
+    options.AddPolicy(AuthorizationPolicyNames.AdminOnly, policy =>
+        policy.RequireRole(RoleCodes.Admin));
+    options.AddPolicy(AuthorizationPolicyNames.ElevatedDataReader, policy =>
+        policy.RequireRole(RoleCodes.Admin, RoleCodes.Director));
+    options.AddPolicy(AuthorizationPolicyNames.DepartmentDataReader, policy =>
+        policy.RequireRole(RoleCodes.Admin, RoleCodes.Director, RoleCodes.Manager));
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("AuthLogin", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+    options.AddPolicy("ApiMutation", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.User.Identity?.Name ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
@@ -101,6 +135,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseCors("Frontend");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using EnterpriseTask.Application.Auth;
@@ -11,7 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace EnterpriseTask.Infrastructure.Auth;
 
-public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguration configuration) : PostgresQueryBase(dbContext), IAuthService
+public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguration configuration) : PostgresCommandBase(dbContext), IAuthService
 {
     private static readonly HttpClient SupabaseHttpClient = new();
 
@@ -35,9 +36,84 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             return null;
         }
 
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(GetExpireMinutes());
-        var token = CreateToken(user, expiresAt);
-        return new LoginResponse(token, expiresAt, ToDto(user));
+        return await CreateLoginResponseAsync(user, Guid.NewGuid(), cancellationToken);
+    }
+
+    public async Task<LoginResponse?> RefreshAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return null;
+        }
+
+        var tokenHash = HashRefreshToken(refreshToken);
+        var sessions = await QueryAsync(
+            """
+            SELECT s.id, s.user_id, s.family_id, s.expires_at, s.revoked_at, p.is_active
+            FROM auth_refresh_sessions s
+            JOIN profiles p ON p.id = s.user_id
+            WHERE s.token_hash = @tokenHash
+            LIMIT 1;
+            """,
+            MapRefreshSessionRow,
+            [("@tokenHash", tokenHash)],
+            cancellationToken);
+
+        var session = sessions.SingleOrDefault();
+        if (session is null
+            || session.RevokedAt is not null
+            || session.ExpiresAt <= DateTimeOffset.UtcNow
+            || !session.IsActive)
+        {
+            return null;
+        }
+
+        var user = await LoadUserByIdAsync(session.UserId, cancellationToken);
+        if (user is null || !user.IsActive)
+        {
+            return null;
+        }
+
+        return await ExecuteInTransactionAsync<LoginResponse?>(async () =>
+        {
+            var revoked = await ExecuteAsync(
+                """
+                UPDATE auth_refresh_sessions
+                SET revoked_at = now(), last_used_at = now()
+                WHERE id = @id AND revoked_at IS NULL;
+                """,
+                [("@id", session.Id)],
+                cancellationToken);
+
+            if (revoked == 0)
+            {
+                return null;
+            }
+
+            return await CreateLoginResponseAsync(user, session.FamilyId, cancellationToken, session.Id);
+        }, cancellationToken);
+    }
+
+    public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return;
+        }
+
+        await ExecuteAsync(
+            """
+            WITH token_family AS (
+                SELECT family_id
+                FROM auth_refresh_sessions
+                WHERE token_hash = @tokenHash
+            )
+            UPDATE auth_refresh_sessions
+            SET revoked_at = COALESCE(revoked_at, now())
+            WHERE family_id IN (SELECT family_id FROM token_family);
+            """,
+            [("@tokenHash", HashRefreshToken(refreshToken))],
+            cancellationToken);
     }
 
     public async Task<AuthUserDto?> GetUserAsync(Guid userId, CancellationToken cancellationToken)
@@ -87,6 +163,11 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         return int.TryParse(configuration["Jwt:ExpireMinutes"], out var minutes) ? minutes : 60;
     }
 
+    private int GetRefreshTokenDays()
+    {
+        return int.TryParse(configuration["Auth:RefreshTokenDays"], out var days) ? days : 14;
+    }
+
     private bool AllowProfilePasswordBypass()
     {
         return bool.TryParse(configuration["Auth:AllowProfilePasswordBypass"], out var enabled) && enabled;
@@ -129,6 +210,58 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         }
 
         return userId;
+    }
+
+    private async Task<LoginResponse> CreateLoginResponseAsync(
+        UserLoginRow user,
+        Guid familyId,
+        CancellationToken cancellationToken,
+        Guid? replacesSessionId = null)
+    {
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(GetExpireMinutes());
+        var refreshToken = CreateRefreshToken();
+        var refreshSessionId = await ExecuteScalarAsync<Guid>(
+            """
+            INSERT INTO auth_refresh_sessions (user_id, token_hash, family_id, expires_at)
+            VALUES (@userId, @tokenHash, @familyId, @expiresAt)
+            RETURNING id;
+            """,
+            [
+                ("@userId", user.Id),
+                ("@tokenHash", HashRefreshToken(refreshToken)),
+                ("@familyId", familyId),
+                ("@expiresAt", DateTimeOffset.UtcNow.AddDays(GetRefreshTokenDays()))
+            ],
+            cancellationToken);
+
+        if (replacesSessionId is not null)
+        {
+            await ExecuteAsync(
+                """
+                UPDATE auth_refresh_sessions
+                SET replaced_by_session_id = @refreshSessionId
+                WHERE id = @replacesSessionId;
+                """,
+                [("@refreshSessionId", refreshSessionId), ("@replacesSessionId", replacesSessionId.Value)],
+                cancellationToken);
+        }
+
+        return new LoginResponse(CreateToken(user, expiresAt), expiresAt, ToDto(user), refreshToken);
+    }
+
+    private static string CreateRefreshToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(64);
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+    }
+
+    private static string HashRefreshToken(string refreshToken)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private async Task<UserLoginRow?> LoadUserByLoginAsync(string normalizedEmailOrCode, CancellationToken cancellationToken)
@@ -186,6 +319,17 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
             reader.GetStringValue("role_codes"));
     }
 
+    private static RefreshSessionRow MapRefreshSessionRow(System.Data.Common.DbDataReader reader)
+    {
+        return new RefreshSessionRow(
+            reader.GetGuidValue("id"),
+            reader.GetGuidValue("user_id"),
+            reader.GetGuidValue("family_id"),
+            reader.GetDateTimeOffsetValue("expires_at"),
+            reader.GetNullableDateTimeOffset("revoked_at"),
+            reader.GetBooleanValue("is_active"));
+    }
+
     private static AuthUserDto ToDto(UserLoginRow user)
     {
         return new AuthUserDto(
@@ -211,4 +355,12 @@ public sealed class JwtAuthService(ApplicationDbContext dbContext, IConfiguratio
         bool IsActive,
         DateTimeOffset CreatedAt,
         string RoleCodes);
+
+    private sealed record RefreshSessionRow(
+        Guid Id,
+        Guid UserId,
+        Guid FamilyId,
+        DateTimeOffset ExpiresAt,
+        DateTimeOffset? RevokedAt,
+        bool IsActive);
 }

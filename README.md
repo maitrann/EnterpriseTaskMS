@@ -64,10 +64,13 @@ Recommended screenshots to add after running through the authenticated demo flow
 ```powershell
 cd backend\EnterpriseTask\EnterpriseTask.Api
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=YOUR_SUPABASE_HOST;Port=5432;Database=postgres;Username=postgres;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
-dotnet user-secrets set "Jwt:Secret" "CHANGE_ME_TO_A_LONG_LOCAL_DEV_SECRET"
-dotnet user-secrets set "Jwt:Issuer" "EnterpriseTask"
-dotnet user-secrets set "Jwt:Audience" "EnterpriseTaskFrontend"
-dotnet run
+dotnet user-secrets set "Jwt:Secret" "CHANGE_ME_TO_A_LONG_LOCAL_DEV_SECRET_AT_LEAST_32_CHARS"
+dotnet user-secrets set "Jwt:Issuer" "EnterpriseTaskMS"
+dotnet user-secrets set "Jwt:Audience" "EnterpriseTaskMSUsers"
+dotnet user-secrets set "Auth:RefreshTokenDays" "14"
+dotnet user-secrets set "Supabase:Url" "https://YOUR_PROJECT_REF.supabase.co"
+dotnet user-secrets set "Supabase:AnonKey" "YOUR_SUPABASE_ANON_PUBLIC_KEY"
+dotnet run --launch-profile https
 ```
 
 Swagger UI is available at `/swagger` in development.
@@ -84,7 +87,7 @@ Check database/migration health:
 GET /api/health/database
 ```
 
-See `docs/database/README.md` for the forward-only migration workflow and recovery notes. `supabase_schema_v2_clean.sql` remains a destructive reset script for disposable local/demo databases only.
+See `docs/database/README.md` for the forward-only migration workflow, Supabase Auth profile setup, and recovery notes. `supabase_schema_v2_clean.sql` remains a destructive reset script for disposable local/demo databases only.
 
 ### Frontend
 

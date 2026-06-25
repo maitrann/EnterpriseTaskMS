@@ -11,3 +11,5 @@ Rules:
 - Apply migrations through the development endpoint or a future deployment runner, not by re-running `supabase_schema_v2_clean.sql`.
 
 `0001_initial_schema.sql` is generated from the current clean schema with the destructive drop block removed. The runtime migrator records it as a baseline when it detects an existing EnterpriseTask schema, so populated local databases are not reset.
+
+`0002_auth_refresh_sessions.sql` adds the refresh-token session table used by `POST /api/auth/refresh` and `POST /api/auth/logout`. It stores only token hashes, not plaintext refresh tokens.
