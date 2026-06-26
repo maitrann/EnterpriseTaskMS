@@ -2,6 +2,8 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { ApplicationConfig } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideState, provideStore } from '@ngrx/store';
+import Aura from '@primeuix/themes/aura';
+import { providePrimeNG } from 'primeng/config';
 
 import { AUTH_DATA_SOURCE } from './core/data-sources/auth.datasource';
 import { DEPARTMENT_DATA_SOURCE } from './core/data-sources/department.datasource';
@@ -19,6 +21,11 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
+    providePrimeNG({
+      theme: {
+        preset: Aura
+      }
+    }),
     provideStore(),
     provideState('tasks', taskReducer),
     { provide: AUTH_DATA_SOURCE, useClass: MockAuthDataSource },

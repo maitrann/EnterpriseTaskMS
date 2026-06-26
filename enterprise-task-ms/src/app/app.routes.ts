@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -44,6 +45,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/inter-department-request/inter-department-request.component')
             .then((m) => m.InterDepartmentRequestComponent)
+      },
+      {
+        path: 'admin/users',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/admin/users/admin-users.component')
+            .then((m) => m.AdminUsersComponent)
       },
       {
         path: '',

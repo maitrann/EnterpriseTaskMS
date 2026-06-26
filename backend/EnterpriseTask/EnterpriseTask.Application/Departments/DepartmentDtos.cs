@@ -9,3 +9,5 @@ public sealed record DepartmentCardDto(
     string Lead,
     string Sla,
     string Tone);
+
+public sealed record DepartmentOptionDto(long Id, string Name);

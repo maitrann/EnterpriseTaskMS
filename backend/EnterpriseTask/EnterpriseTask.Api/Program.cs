@@ -1,4 +1,5 @@
 using EnterpriseTask.Api.Auth;
+using EnterpriseTask.Application.Auth;
 using EnterpriseTask.Application.Common;
 using EnterpriseTask.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -41,6 +42,26 @@ builder.Services
             ValidAudience = jwtAudience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
             ClockSkew = TimeSpan.FromMinutes(2)
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                if (!ClaimsPrincipalScopeReader.TryGetUserId(context.Principal, out var userId))
+                {
+                    context.Fail("Missing authenticated user id.");
+                    return;
+                }
+
+                var validator = context.HttpContext.RequestServices.GetRequiredService<IUserSessionValidator>();
+                if (!await validator.IsValidAsync(
+                    userId,
+                    ClaimsPrincipalScopeReader.GetRoleCodes(context.Principal!),
+                    context.HttpContext.RequestAborted))
+                {
+                    context.Fail("The authenticated user session is no longer valid.");
+                }
+            }
         };
     });
 builder.Services.AddAuthorization(options =>
@@ -116,6 +137,10 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Paste a JWT access token returned by POST /api/auth/login."
     });
 
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+    });
 });
 
 var app = builder.Build();

@@ -43,4 +43,21 @@ public sealed class PostgresDepartmentQueries(ApplicationDbContext dbContext) : 
             [("@departmentId", scope.DepartmentId), ("@isElevated", scope.CanSeeAllData)],
             cancellationToken);
     }
+
+    public Task<IReadOnlyList<DepartmentOptionDto>> GetOptionsAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT id, name
+            FROM departments
+            WHERE is_active = TRUE
+            ORDER BY name;
+            """;
+
+        return QueryAsync(
+            sql,
+            reader => new DepartmentOptionDto(
+                reader.GetInt64Value("id"),
+                reader.GetStringValue("name")),
+            cancellationToken);
+    }
 }

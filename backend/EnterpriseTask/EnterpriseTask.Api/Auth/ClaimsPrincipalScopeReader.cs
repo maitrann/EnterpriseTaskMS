@@ -26,10 +26,14 @@ internal static class ClaimsPrincipalScopeReader
             ? parsedDepartmentId
             : (long?)null;
 
-        var roleCodes = principal.FindAll(ClaimTypes.Role)
-            .Select(claim => claim.Value.Trim())
-            .Where(value => value.Length > 0);
+        return UserScope.FromRoleCodes(userId, departmentId, GetRoleCodes(principal));
+    }
 
-        return UserScope.FromRoleCodes(userId, departmentId, roleCodes);
+    public static IReadOnlyCollection<string> GetRoleCodes(ClaimsPrincipal principal)
+    {
+        return principal.FindAll(ClaimTypes.Role)
+            .Select(claim => claim.Value.Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
     }
 }

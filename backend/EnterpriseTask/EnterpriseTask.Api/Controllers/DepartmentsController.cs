@@ -17,4 +17,10 @@ public sealed class DepartmentsController(
     {
         return Ok(await departmentQueries.GetCardsAsync(currentUser.GetRequiredScope(), cancellationToken));
     }
+
+    [HttpGet("options")]
+    public async Task<ActionResult<IReadOnlyList<DepartmentOptionDto>>> GetOptions(CancellationToken cancellationToken)
+    {
+        return Ok(await departmentQueries.GetOptionsAsync(cancellationToken));
+    }
 }

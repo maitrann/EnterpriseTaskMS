@@ -1,0 +1,198 @@
+<div class="admin-users-shell ds-page">
+  <section class="hero ds-hero surface-card">
+    <div class="hero-copy">
+      <p class="ds-hero-kicker">Quan tri he thong</p>
+      <h2 class="ds-hero-title">Nguoi dung, role va scope phong ban</h2>
+      <p class="ds-muted-text">
+        Man hinh nay ket noi cac API P1-02 de admin khoa tai khoan, gan role va gan scope phong ban.
+      </p>
+    </div>
+
+    <div class="ds-action-row">
+      <button class="ds-action primary" type="button" (click)="reloadUsers()" [disabled]="isLoading()">Tai lai</button>
+    </div>
+  </section>
+
+  <section class="summary-strip">
+    <article class="ds-metric-card surface-card-muted">
+      <span>Tong user</span>
+      <strong>{{ totalItems() }}</strong>
+      <small>Theo bo loc hien tai</small>
+    </article>
+    <article class="ds-metric-card surface-card-muted">
+      <span>Dang hoat dong</span>
+      <strong>{{ activeUsers() }}</strong>
+      <small>Trong trang hien tai</small>
+    </article>
+    <article class="ds-metric-card surface-card-muted">
+      <span>Da khoa</span>
+      <strong>{{ inactiveUsers() }}</strong>
+      <small>Trong trang hien tai</small>
+    </article>
+  </section>
+
+  <section class="toolbar surface-card">
+    <label class="field">
+      <span>Tim kiem</span>
+      <input
+        type="search"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+        placeholder="Email, ho ten, ma nhan vien" />
+    </label>
+
+    <label class="field compact">
+      <span>Trang thai</span>
+      <select [ngModel]="isActive()" (ngModelChange)="isActive.set($event)">
+        <option value="all">Tat ca</option>
+        <option value="active">Dang hoat dong</option>
+        <option value="inactive">Da khoa</option>
+      </select>
+    </label>
+
+    <button class="ds-action primary" type="button" (click)="applyFilters()">Ap dung</button>
+  </section>
+
+  <p class="notice success" *ngIf="actionMessage()">{{ actionMessage() }}</p>
+  <p class="notice error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+  <section class="user-table-card surface-card">
+    <p-table
+      styleClass="admin-prime-table"
+      [value]="users()"
+      [lazy]="true"
+      [lazyLoadOnInit]="false"
+      [paginator]="true"
+      [rows]="pageSize()"
+      [first]="(page() - 1) * pageSize()"
+      [totalRecords]="totalItems()"
+      [rowsPerPageOptions]="rowsPerPageOptions"
+      [loading]="isLoading()"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Hien thi {first}-{last} / {totalRecords}"
+      [tableStyle]="{ 'min-width': '1080px' }"
+      (onLazyLoad)="onTableLazyLoad($event)">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Nguoi dung</th>
+          <th>Trang thai</th>
+          <th>Roles</th>
+          <th>Department scopes</th>
+          <th>Thao tac</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-user>
+        <tr>
+          <td class="user-cell">
+            <p class="mini-label">{{ user.employeeCode || user.email || user.id }}</p>
+            <strong>{{ getUserLabel(user) }}</strong>
+            <small>{{ user.jobTitle || 'Chua co chuc danh' }} - {{ user.departmentName || 'Chua gan phong ban' }}</small>
+          </td>
+
+          <td>
+            <div class="state-stack">
+              <p-tag [value]="user.isActive ? 'Active' : 'Locked'" [severity]="user.isActive ? 'success' : 'danger'" />
+              <span class="self-pill" *ngIf="isCurrentUser(user)">Dang dang nhap</span>
+            </div>
+          </td>
+
+          <td class="management-cell">
+            <div class="cell-summary">
+              <strong>{{ user.roleCodes.length || 0 }} role</strong>
+            </div>
+
+            <div class="chip-row" *ngIf="user.roleCodes.length; else noRoles">
+              <span class="chip" *ngFor="let roleCode of user.roleCodes; let index = index">
+                {{ getRoleName(roleCode, index, user) }}
+                <button type="button" (click)="removeRole(user, roleCode)" [disabled]="isCurrentUser(user)">x</button>
+              </span>
+            </div>
+            <ng-template #noRoles>
+              <p class="empty-copy">Chua co role.</p>
+            </ng-template>
+
+            <div class="inline-action">
+              <p-select
+                styleClass="cell-select"
+                appendTo="body"
+                placeholder="Chon role"
+                optionLabel="name"
+                optionValue="id"
+                [options]="roles()"
+                [ngModel]="selectedRoleByUser()[user.id] ?? null"
+                (ngModelChange)="updateSelectedRole(user.id, $event)"
+                [disabled]="isCurrentUser(user)" />
+              <p-button
+                label="Gan"
+                size="small"
+                severity="secondary"
+                [disabled]="isCurrentUser(user)"
+                (onClick)="assignSelectedRole(user)" />
+            </div>
+          </td>
+
+          <td class="management-cell">
+            <div class="cell-summary">
+              <strong>{{ user.scopedDepartmentIds.length || 0 }} scope</strong>
+            </div>
+
+            <div class="chip-row" *ngIf="user.scopedDepartmentIds.length; else noScopes">
+              <span class="chip muted" *ngFor="let departmentId of user.scopedDepartmentIds">
+                {{ getDepartmentName(departmentId) }}
+                <button type="button" (click)="removeDepartmentScope(user, departmentId)" [disabled]="isCurrentUser(user)">x</button>
+              </span>
+            </div>
+            <ng-template #noScopes>
+              <p class="empty-copy">Chua co scope phong ban.</p>
+            </ng-template>
+
+            <div class="inline-action">
+              <p-select
+                styleClass="cell-select"
+                appendTo="body"
+                placeholder="Chon phong ban"
+                optionLabel="name"
+                optionValue="id"
+                [options]="departments()"
+                [ngModel]="selectedDepartmentByUser()[user.id] ?? null"
+                (ngModelChange)="updateSelectedDepartment(user.id, $event)"
+                [disabled]="isCurrentUser(user)" />
+              <p-button
+                label="Gan"
+                size="small"
+                severity="secondary"
+                [disabled]="isCurrentUser(user)"
+                (onClick)="assignSelectedDepartmentScope(user)" />
+            </div>
+          </td>
+
+          <td class="actions-cell">
+            <p-button
+              *ngIf="user.isActive"
+              label="Khoa"
+              size="small"
+              severity="danger"
+              [outlined]="true"
+              [disabled]="isCurrentUser(user)"
+              (onClick)="lockUser(user)" />
+            <p-button
+              *ngIf="!user.isActive"
+              label="Mo khoa"
+              size="small"
+              severity="success"
+              [outlined]="true"
+              [disabled]="isCurrentUser(user)"
+              (onClick)="unlockUser(user)" />
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="empty-table">Khong co user phu hop voi bo loc hien tai.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>

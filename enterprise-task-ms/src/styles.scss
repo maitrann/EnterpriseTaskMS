@@ -3,6 +3,7 @@
 @use './styles/layout';
 @use './styles/components';
 @use "tailwindcss";
+@import 'primeicons/primeicons.css';
 
 html, body {
   font-family: "Segoe UI", Inter, "Helvetica Neue", Arial, sans-serif;

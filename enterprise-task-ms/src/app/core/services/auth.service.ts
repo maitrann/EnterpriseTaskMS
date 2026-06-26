@@ -92,6 +92,19 @@ export class AuthService {
     return role.includes('admin') || role.includes('director') || role.includes('lanh dao');
   }
 
+  isAdmin() {
+    return this.hasRoleCode('admin') || (this.user()?.role?.toLowerCase() ?? '').includes('admin');
+  }
+
+  hasRoleCode(roleCode: string) {
+    const roles = this.user()?.role
+      ?.split(',')
+      .map((role) => role.trim().toLowerCase())
+      .filter(Boolean) ?? [];
+
+    return roles.includes(roleCode.toLowerCase());
+  }
+
   canEditTask(task: Task) {
     const user = this.user();
 

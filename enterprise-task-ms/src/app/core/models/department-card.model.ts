@@ -8,3 +8,8 @@ export interface DepartmentCard {
   sla: string;
   tone: 'blue' | 'amber' | 'emerald' | 'slate';
 }
+
+export interface DepartmentOption {
+  id: number;
+  name: string;
+}

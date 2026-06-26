@@ -8,10 +8,12 @@ import {
   DepartmentDataSource
 } from '../data-sources/department.datasource';
 import { DepartmentCard } from '../models/department-card.model';
+import { DepartmentOption } from '../models/department-card.model';
 
 @Injectable({ providedIn: 'root' })
 export class DepartmentService {
   readonly departmentCards = signal<DepartmentCard[]>([]);
+  readonly departmentOptions = signal<DepartmentOption[]>([]);
 
   readonly summaryCards = computed(() => {
     const departments = this.departmentCards();
@@ -37,6 +39,7 @@ export class DepartmentService {
   ) {
     this.departmentCards.set(this.departmentDataSource.getDepartmentCards());
     void this.loadFromApi();
+    void this.loadOptions();
   }
 
   async loadFromApi() {
@@ -46,6 +49,16 @@ export class DepartmentService {
       );
     } catch {
       // Keep mock cards while the API is offline.
+    }
+  }
+
+  async loadOptions() {
+    try {
+      this.departmentOptions.set(
+        await firstValueFrom(this.http.get<DepartmentOption[]>(`${API_BASE_URL}/departments/options`))
+      );
+    } catch {
+      this.departmentOptions.set([]);
     }
   }
 }
