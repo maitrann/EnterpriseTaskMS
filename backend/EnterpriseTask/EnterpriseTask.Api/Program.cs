@@ -1,6 +1,7 @@
 using EnterpriseTask.Api.Auth;
 using EnterpriseTask.Application.Common;
 using EnterpriseTask.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
@@ -15,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 
 var jwtSecret = GetRequiredConfiguration(builder.Configuration, "Jwt:Secret");
@@ -51,6 +53,10 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole(RoleCodes.Admin, RoleCodes.Director));
     options.AddPolicy(AuthorizationPolicyNames.DepartmentDataReader, policy =>
         policy.RequireRole(RoleCodes.Admin, RoleCodes.Director, RoleCodes.Manager));
+    AddPermissionPolicy(options, AuthorizationPolicyNames.TaskCreate, PermissionCodes.TaskCreate);
+    AddPermissionPolicy(options, AuthorizationPolicyNames.TaskUpdate, PermissionCodes.TaskUpdate);
+    AddPermissionPolicy(options, AuthorizationPolicyNames.TaskAssign, PermissionCodes.TaskAssign);
+    AddPermissionPolicy(options, AuthorizationPolicyNames.CommentCreate, PermissionCodes.CommentCreate);
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -154,4 +160,13 @@ static string GetRequiredConfiguration(IConfiguration configuration, string key)
     }
 
     return value;
+}
+
+static void AddPermissionPolicy(AuthorizationOptions options, string policyName, string permissionCode)
+{
+    options.AddPolicy(policyName, policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.AddRequirements(new PermissionRequirement(permissionCode));
+    });
 }

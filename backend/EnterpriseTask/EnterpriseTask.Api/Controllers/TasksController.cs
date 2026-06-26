@@ -41,6 +41,7 @@ public sealed class TasksController(
     }
 
     [HttpPost]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskCreate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> Create(CreateTaskRequest request, CancellationToken cancellationToken)
     {
@@ -56,6 +57,7 @@ public sealed class TasksController(
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> Update(Guid id, UpdateTaskRequest request, CancellationToken cancellationToken)
     {
@@ -68,6 +70,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/status")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> UpdateStatus(Guid id, UpdateTaskStatusRequest request, CancellationToken cancellationToken)
     {
@@ -80,6 +83,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/assignee")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskAssign)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> TransferAssignee(Guid id, TransferTaskAssigneeRequest request, CancellationToken cancellationToken)
     {
@@ -92,6 +96,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/duplicate")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskCreate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> Duplicate(Guid id, DuplicateTaskRequest request, CancellationToken cancellationToken)
     {
@@ -105,6 +110,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/comments")]
+    [Authorize(Policy = AuthorizationPolicyNames.CommentCreate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> AddComment(Guid id, AddTaskCommentRequest request, CancellationToken cancellationToken)
     {
@@ -131,6 +137,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/extension-requests/{requestId:guid}/review")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> ReviewExtension(Guid id, Guid requestId, ReviewTaskExtensionRequest request, CancellationToken cancellationToken)
     {
@@ -143,6 +150,7 @@ public sealed class TasksController(
     }
 
     [HttpPost("{id:guid}/subtasks")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<ActionResult> CreateSubTask(Guid id, CreateSubTaskRequest request, CancellationToken cancellationToken)
     {
@@ -156,6 +164,7 @@ public sealed class TasksController(
     }
 
     [HttpPut("{id:guid}/subtasks/{subTaskId:guid}")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> UpdateSubTask(Guid id, Guid subTaskId, UpdateSubTaskRequest request, CancellationToken cancellationToken)
     {
@@ -168,6 +177,7 @@ public sealed class TasksController(
     }
 
     [HttpDelete("{id:guid}/subtasks/{subTaskId:guid}")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> DeleteSubTask(Guid id, Guid subTaskId, CancellationToken cancellationToken)
     {

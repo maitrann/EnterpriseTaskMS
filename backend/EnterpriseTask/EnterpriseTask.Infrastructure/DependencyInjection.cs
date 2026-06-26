@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ITaskCommands, PostgresTaskCommands>();
         services.AddScoped<ITaskAccessReader, PostgresTaskAccessReader>();
         services.AddScoped<ITaskPolicyQueries, PostgresTaskPolicyQueries>();
+        services.AddScoped<IPermissionChecker, PostgresPermissionChecker>();
         services.AddScoped<CreateTaskHandler>();
         services.AddScoped<UpdateTaskStatusHandler>();
         services.AddScoped<IDepartmentQueries, PostgresDepartmentQueries>();
