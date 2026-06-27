@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="EnterpriseTask.Application/EnterpriseTask.Application.csproj" />
   <Project Path="EnterpriseTask.Api/EnterpriseTask.Api.csproj" />
+  <Project Path="EnterpriseTask.Api.Tests/EnterpriseTask.Api.Tests.csproj" />
   <Project Path="EnterpriseTask.Domain/EnterpriseTask.Domain.csproj" />
   <Project Path="EnterpriseTask.Domain.Tests/EnterpriseTask.Domain.Tests.csproj" />
   <Project Path="EnterpriseTask.Infrastructure/EnterpriseTask.Infrastructure.csproj" />

@@ -1,22 +1,28 @@
+using EnterpriseTask.Application.Common;
+
 namespace EnterpriseTask.Application.Departments;
 
 public interface IDepartmentAdministrationCommands
 {
     Task<DepartmentAdministrationCommandResult> CreateAsync(
+        UserScope scope,
         DepartmentCreateRequest request,
         CancellationToken cancellationToken);
 
     Task<DepartmentAdministrationCommandResult> UpdateAsync(
+        UserScope scope,
         long departmentId,
         DepartmentUpdateRequest request,
         CancellationToken cancellationToken);
 
     Task<DepartmentAdministrationCommandResult> AssignManagerAsync(
+        UserScope scope,
         long departmentId,
         DepartmentManagerAssignmentRequest request,
         CancellationToken cancellationToken);
 
     Task<DepartmentAdministrationCommandResult> DeactivateAsync(
+        UserScope scope,
         long departmentId,
         CancellationToken cancellationToken);
 }

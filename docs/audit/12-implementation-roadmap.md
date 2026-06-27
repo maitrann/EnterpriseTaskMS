@@ -158,6 +158,7 @@ Do not start Phase 4 before Phase 0 authorization tests and Phase 2 audit contro
 - **Implementation note:** P1-03B adds admin-only create/update/manager/deactivate APIs and backend invariants for self-parent, hierarchy cycle prevention, active-manager validation, duplicate company code/name conflicts and safe deactivation. UI, audit writes and DB/API integration tests remain follow-up slices.
 - **Implementation note:** P1-03C expands domain policy coverage for allowed/denied parent assignments, deactivation precedence and manager assignment availability. DB/API integration tests and frontend management UI remain follow-up slices.
 - **Implementation note:** P1-03D adds an admin-guarded `/admin/departments` PrimeNG UI for create/update, parent selection, manager assignment, deactivate action, include-inactive filtering and paginated department management. Audit writes, DB/API integration tests and browser/E2E verification remain follow-up work.
+- **Implementation note:** P1-03E adds transaction-bound department audit writes for create/update/manager assignment/deactivation and API controller regression tests for actor-scope propagation plus conflict/not-found response mapping. Browser mutation E2E passed against a running backend from the CORS-allowed `http://localhost:4200` origin; direct Supabase `audit_logs` assertions remain a follow-up until an audit API or DB integration harness exists.
 
 ### P1-04 - Complete Task CRUD and Typed FE/BE Contract
 

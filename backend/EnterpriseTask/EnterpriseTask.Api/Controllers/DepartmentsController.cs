@@ -57,7 +57,7 @@ public sealed class DepartmentsController(
             return validationProblem;
         }
 
-        var result = await departmentCommands.CreateAsync(request, cancellationToken);
+        var result = await departmentCommands.CreateAsync(currentUser.GetRequiredScope(), request, cancellationToken);
         return result.Result == DepartmentAdministrationResult.Success
             ? CreatedAtAction(nameof(GetList), new { includeInactive = true }, new { id = result.DepartmentId })
             : ToActionResult(result.Result);
@@ -77,7 +77,7 @@ public sealed class DepartmentsController(
             return validationProblem;
         }
 
-        return ToActionResult((await departmentCommands.UpdateAsync(id, request, cancellationToken)).Result);
+        return ToActionResult((await departmentCommands.UpdateAsync(currentUser.GetRequiredScope(), id, request, cancellationToken)).Result);
     }
 
     [Authorize(Policy = AuthorizationPolicyNames.AdminOnly)]
@@ -88,7 +88,7 @@ public sealed class DepartmentsController(
         DepartmentManagerAssignmentRequest request,
         CancellationToken cancellationToken)
     {
-        return ToActionResult((await departmentCommands.AssignManagerAsync(id, request, cancellationToken)).Result);
+        return ToActionResult((await departmentCommands.AssignManagerAsync(currentUser.GetRequiredScope(), id, request, cancellationToken)).Result);
     }
 
     [Authorize(Policy = AuthorizationPolicyNames.AdminOnly)]
@@ -96,7 +96,7 @@ public sealed class DepartmentsController(
     [EnableRateLimiting("ApiMutation")]
     public async Task<IActionResult> Deactivate(long id, CancellationToken cancellationToken)
     {
-        return ToActionResult((await departmentCommands.DeactivateAsync(id, cancellationToken)).Result);
+        return ToActionResult((await departmentCommands.DeactivateAsync(currentUser.GetRequiredScope(), id, cancellationToken)).Result);
     }
 
     private IActionResult? ValidateDepartmentName(string name)

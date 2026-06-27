@@ -495,6 +495,30 @@ Verification:
 
 Traceability note: `DEPT-01` now has backend read/write contracts, policy tests and a frontend admin department management screen. It remains `PARTIAL` until DB/API integration tests prove the hierarchy and deactivation behavior against Supabase data, mutations are audited, and the UI is exercised in a browser/E2E flow.
 
+### P1-03E - Department Audit and API Regression Coverage
+
+Evidence added after P1-03D:
+
+- Department audit writes: `backend/EnterpriseTask/EnterpriseTask.Infrastructure/Departments/PostgresDepartmentAdministrationCommands.cs` now writes `audit_logs` entries for `department.created`, `department.updated`, `department.manager_assigned` and `department.deactivated`.
+- Transaction boundary: department mutations and their audit writes run inside `ExecuteInTransactionAsync`, so a failed audit insert rolls back the corresponding department write.
+- Actor attribution: `IDepartmentAdministrationCommands` now accepts `UserScope`; `DepartmentsController` passes `currentUser.GetRequiredScope()` into every admin mutation so audit `actor_id` uses the authenticated admin user.
+- API regression project: `backend/EnterpriseTask/EnterpriseTask.Api.Tests/EnterpriseTask.Api.Tests.csproj` is added to the solution.
+- API controller tests: `DepartmentsControllerTests` covers create actor-scope propagation, update cycle conflict mapping, missing-manager mapping and deactivate active-child conflict mapping.
+- Browser route guard verification: Angular dev server rendered `/login` when opening `/admin/departments` unauthenticated, confirming the admin route remains guard-protected.
+- Browser mutation E2E verification: with the backend running at `https://localhost:7154` and frontend served from the CORS-allowed `http://localhost:4200` origin, an admin user logged in successfully, opened `/admin/departments`, created test department `E2E314284`, updated its name/description, and deactivated it. The UI refreshed from `4` active departments to `5` after create, then back to `4` active and `1` inactive after deactivate, with no browser console errors.
+- Runtime CORS note: the same login failed from `http://127.0.0.1:4200` because backend CORS only allows `http://localhost:4200` and `https://localhost:4200`.
+
+Verification:
+
+- `dotnet restore backend\EnterpriseTask\EnterpriseTask.slnx` - passed after network approval.
+- `dotnet build backend\EnterpriseTask\EnterpriseTask.slnx --no-restore` - passed: 0 warnings, 0 errors.
+- `dotnet test backend\EnterpriseTask\EnterpriseTask.slnx --no-restore --no-build` - passed: 76 tests total (`4` API tests, `72` domain tests).
+- `npm.cmd run build` in `enterprise-task-ms` - passed; existing PrimeNG initial bundle budget warning remains (`582.78 kB` vs `500 kB` warning budget).
+- `npm.cmd test -- --watch=false` in `enterprise-task-ms` - passed: 2 tests.
+- Browser E2E in the in-app browser - passed for login, department create, update and deactivate against the running backend. Test row was left inactive: `E2E314284`.
+
+Traceability note: `DEPT-01` now has mutation audit coverage, controller-level API regression tests and a full authenticated browser mutation check. It remains `PARTIAL` only for direct live Supabase DB assertions over `audit_logs` and hierarchy/deactivation SQL behavior, because there is still no audit search API or dedicated DB integration test harness.
+
 ## Overall Verdict
 
 The repository is a credible full-stack foundation and supports a focused task/request demo, but it is not yet an end-to-end implementation of the SRS. The most valuable next work is to add DB-backed integration tests for auth refresh/replay, transaction rollback and authorization scope, then complete server-side list contracts. Realtime/jobs/files/reports and AI should remain explicitly marked as roadmap capabilities until runtime paths and tests exist.
