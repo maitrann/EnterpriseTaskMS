@@ -1,45 +1,53 @@
 <div class="ui-custom-select" [class.is-disabled]="disabled" [class.is-compact]="size === 'compact'">
-  <button class="select-trigger" type="button" [class.is-open]="isOpen()" (click)="toggleOpen()">
-    <div class="trigger-copy">
-      <span class="trigger-label" *ngIf="helperLabel">{{ helperLabel }}</span>
-      <strong [class.is-placeholder]="!getSelectedOptions().length">{{ getDisplayValue() }}</strong>
-    </div>
+  <span class="helper-label" *ngIf="helperLabel && size !== 'compact'">{{ helperLabel }}</span>
 
-    <span class="trigger-meta" *ngIf="multiple && getSelectedOptions().length">{{ getSelectedOptions().length }}</span>
-    <span class="trigger-arrow" aria-hidden="true"></span>
-  </button>
-
-  <div class="select-panel" *ngIf="isOpen()">
-    <div class="panel-search">
-      <input
-        class="panel-search-input"
-        [ngModel]="searchTerm()"
-        (ngModelChange)="searchTerm.set($event)"
-        [placeholder]="searchPlaceholder" />
-    </div>
-
-    <div class="options-scroll" *ngIf="getFilteredOptions().length; else emptyOptions">
-      <div class="option-group" *ngFor="let group of getGroupedOptions()">
-        <div class="group-label" *ngIf="group.label">{{ group.label }}</div>
-
-        <button
-          class="select-option"
-          type="button"
-          *ngFor="let option of group.options"
-          [class.active]="isSelected(option)"
-          (click)="selectOption(option)">
-          <span class="option-check" aria-hidden="true"></span>
-
-          <span class="option-copy">
-            <strong>{{ option.label }}</strong>
-            <small *ngIf="option.description">{{ option.description }}</small>
-          </span>
-        </button>
+  <p-select
+    *ngIf="!multiple"
+    styleClass="prime-custom-select"
+    appendTo="body"
+    optionLabel="label"
+    optionValue="value"
+    filterBy="label,description"
+    [filter]="true"
+    [filterPlaceholder]="searchPlaceholder"
+    [emptyMessage]="emptyLabel"
+    [emptyFilterMessage]="emptyLabel"
+    [options]="options"
+    [placeholder]="placeholder"
+    [disabled]="disabled"
+    [ngModel]="normalizedValue"
+    (ngModelChange)="emitValue($event)">
+    <ng-template pTemplate="item" let-option>
+      <div class="select-option-template">
+        <strong>{{ option.label }}</strong>
+        <small *ngIf="option.description">{{ option.description }}</small>
       </div>
-    </div>
-
-    <ng-template #emptyOptions>
-      <div class="empty-state">{{ emptyLabel }}</div>
     </ng-template>
-  </div>
+  </p-select>
+
+  <p-multiselect
+    *ngIf="multiple"
+    styleClass="prime-custom-select"
+    appendTo="body"
+    display="chip"
+    optionLabel="label"
+    optionValue="value"
+    filterBy="label,description"
+    selectedItemsLabel="{0} lựa chọn"
+    [filter]="true"
+    [filterPlaceHolder]="searchPlaceholder"
+    [emptyMessage]="emptyLabel"
+    [emptyFilterMessage]="emptyLabel"
+    [options]="options"
+    [placeholder]="placeholder"
+    [disabled]="disabled"
+    [ngModel]="normalizedValue"
+    (ngModelChange)="emitValue($event)">
+    <ng-template pTemplate="item" let-option>
+      <div class="select-option-template">
+        <strong>{{ option.label }}</strong>
+        <small *ngIf="option.description">{{ option.description }}</small>
+      </div>
+    </ng-template>
+  </p-multiselect>
 </div>

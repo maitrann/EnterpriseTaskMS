@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddScoped<CreateTaskHandler>();
         services.AddScoped<UpdateTaskStatusHandler>();
         services.AddScoped<IDepartmentQueries, PostgresDepartmentQueries>();
+        services.AddScoped<IDepartmentAdministrationCommands, PostgresDepartmentAdministrationCommands>();
         services.AddScoped<IProjectQueries, PostgresProjectQueries>();
         services.AddScoped<IUserQueries, PostgresUserQueries>();
         services.AddScoped<IUserAdministrationCommands, PostgresUserAdministrationCommands>();

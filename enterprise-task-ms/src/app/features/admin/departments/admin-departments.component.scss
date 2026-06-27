@@ -1,0 +1,236 @@
+.hero {
+  align-items: center;
+  padding: 24px;
+}
+
+.hero-copy .ds-muted-text {
+  margin-top: 12px;
+  max-width: 720px;
+}
+
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.notice {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.notice.success {
+  background: var(--etms-success-soft);
+  color: #047857;
+}
+
+.notice.error {
+  background: var(--etms-danger-soft);
+  color: #b91c1c;
+}
+
+.department-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+}
+
+.form-head,
+.form-actions,
+.toolbar,
+.actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.form-head h3 {
+  margin: 4px 0 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 180px 180px repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--etms-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.field.description {
+  grid-column: span 2;
+}
+
+.field input,
+.field textarea {
+  border: 1px solid var(--etms-border);
+  border-radius: 14px;
+  background: var(--etms-surface);
+  color: var(--etms-text-primary);
+  font: inherit;
+  padding: 10px 12px;
+}
+
+.field input {
+  min-height: 40px;
+}
+
+.field textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.toolbar {
+  justify-content: flex-start;
+  padding: 16px 18px;
+}
+
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--etms-text-secondary);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.department-table-card {
+  overflow: hidden;
+  padding: 0;
+}
+
+.department-cell {
+  width: 280px;
+}
+
+.department-cell strong {
+  display: block;
+  margin: 3px 0;
+  color: var(--etms-text-primary);
+  font-size: 0.92rem;
+}
+
+.department-cell small {
+  display: -webkit-box;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--etms-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.mini-label {
+  margin: 0;
+  color: var(--etms-text-secondary);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--etms-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.actions-cell {
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.empty-table {
+  padding: 22px;
+  color: var(--etms-text-secondary);
+  font-weight: 700;
+  text-align: center;
+}
+
+:host ::ng-deep .form-select {
+  width: 100%;
+  border-color: var(--etms-border);
+  background: var(--etms-surface);
+  color: var(--etms-text-primary);
+}
+
+:host ::ng-deep .form-select .p-select-label {
+  font-size: 0.86rem;
+  padding: 8px 10px;
+}
+
+:host ::ng-deep .admin-prime-table {
+  border-radius: 24px;
+  background: transparent;
+  overflow: hidden;
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-table,
+:host ::ng-deep .admin-prime-table .p-datatable-tbody > tr {
+  background: transparent;
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-thead > tr > th {
+  border-color: var(--etms-border);
+  background: var(--etms-surface-muted);
+  color: var(--etms-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 14px 16px;
+  text-transform: uppercase;
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-tbody > tr > td {
+  border-color: var(--etms-border);
+  background: var(--etms-surface-soft);
+  color: var(--etms-text-primary);
+  padding: 14px 16px;
+  vertical-align: top;
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-tbody > tr:hover {
+  background: var(--etms-primary-soft);
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-tbody > tr:hover > td {
+  background: var(--etms-primary-soft);
+}
+
+:host ::ng-deep .admin-prime-table .p-datatable-paginator-bottom {
+  border-top: 1px solid var(--etms-border);
+  background: var(--etms-surface-soft);
+  color: var(--etms-text-secondary);
+  padding: 10px 14px;
+}
+
+@media (max-width: 1200px) {
+  .form-grid,
+  .summary-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .field.description {
+    grid-column: auto;
+  }
+
+  .form-head,
+  .form-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

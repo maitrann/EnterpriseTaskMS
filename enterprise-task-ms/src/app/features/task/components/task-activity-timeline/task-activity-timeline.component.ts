@@ -27,39 +27,39 @@ export class TaskActivityTimelineComponent {
   getActionText(activity: TaskActivity) {
     switch (activity.actionType) {
       case 'status_change':
-        return 'cap nhat trang thai';
+        return 'cập nhật trạng thái';
       case 'priority_change':
         return 'đổi mức ưu tiên';
       case 'assignee_change':
-        return 'doi nguoi phu trach';
+        return 'đổi người phụ trách';
       case 'progress_change':
-        return 'cap nhat tien do';
+        return 'cập nhật tiến độ';
       case 'comment_added':
-        return 'them ghi chu';
+        return 'thêm ghi chú';
       case 'attachment_added':
-        return 'them tep dinh kem';
+        return 'thêm tệp đính kèm';
       case 'attachment_change':
-        return 'cap nhat tep dinh kem';
+        return 'cập nhật tệp đính kèm';
       case 'deadline_change':
         return 'đổi deadline';
       case 'processing_note_change':
         return 'cập nhật ghi chú xử lý';
       case 'accept_task':
-        return 'nhan viec';
+        return 'nhận việc';
       case 'reject_acceptance':
-        return 'tu choi tiep nhan';
+        return 'từ chối tiếp nhận';
       case 'request_extension':
-        return 'xin gia han';
+        return 'xin gia hạn';
       case 'approve_extension':
-        return 'duyet gia han';
+        return 'duyệt gia hạn';
       case 'reject_extension':
-        return 'tu choi gia han';
+        return 'từ chối gia hạn';
       case 'transfer_assignee':
         return 'chuyển người xử lý';
       case 'complete_task':
         return 'hoàn thành công việc';
       case 'confirm_completion':
-        return 'xac nhan hoan thanh';
+        return 'xác nhận hoàn thành';
       case 'cancel_task':
         return 'hủy công việc';
       case 'duplicate_task':
@@ -78,13 +78,13 @@ export class TaskActivityTimelineComponent {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 60) {
-      return `${minutes}m truoc`;
+      return `${minutes}m trước`;
     }
 
     if (hours < 24) {
-      return `${hours}h truoc`;
+      return `${hours}h trước`;
     }
 
-    return `${days} ngay truoc`;
+    return `${days} ngày trước`;
   }
 }

@@ -36,6 +36,11 @@ export class AdminUsersComponent {
   readonly page = signal(1);
   readonly pageSize = signal(20);
   readonly rowsPerPageOptions = [10, 20, 50];
+  readonly activeStatusOptions = [
+    { label: 'Tất cả', value: 'all' },
+    { label: 'Đang hoạt động', value: 'active' },
+    { label: 'Đã khóa', value: 'inactive' }
+  ];
   readonly selectedRoleByUser = signal<Record<string, number | null>>({});
   readonly selectedDepartmentByUser = signal<Record<string, number | null>>({});
   readonly actionMessage = signal<string | null>(null);
@@ -57,7 +62,7 @@ export class AdminUsersComponent {
   }
 
   async reloadUsers() {
-    await this.runAction('Da tai danh sach nguoi dung.', async () => {
+    await this.runAction('Đã tải danh sách người dùng.', async () => {
       await this.userService.loadUsers({
         page: this.page(),
         pageSize: this.pageSize(),
@@ -82,11 +87,11 @@ export class AdminUsersComponent {
 
   async lockUser(user: AdminUser) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the khoa tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể khóa tài khoản đang đăng nhập.');
       return;
     }
 
-    await this.runAction(`Da khoa ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã khóa ${this.getUserLabel(user)}.`, async () => {
       await this.userService.lockUser(user.id);
       await this.reloadUsers();
     });
@@ -94,11 +99,11 @@ export class AdminUsersComponent {
 
   async unlockUser(user: AdminUser) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the sua trang thai tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể sửa trạng thái tài khoản đang đăng nhập.');
       return;
     }
 
-    await this.runAction(`Da mo khoa ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã mở khóa ${this.getUserLabel(user)}.`, async () => {
       await this.userService.unlockUser(user.id);
       await this.reloadUsers();
     });
@@ -106,17 +111,17 @@ export class AdminUsersComponent {
 
   async assignSelectedRole(user: AdminUser) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the sua role cua tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể sửa role của tài khoản đang đăng nhập.');
       return;
     }
 
     const roleId = this.selectedRoleByUser()[user.id];
     if (!roleId) {
-      this.errorMessage.set('Hay chon role truoc khi gan.');
+      this.errorMessage.set('Hãy chọn role trước khi gán.');
       return;
     }
 
-    await this.runAction(`Da gan role cho ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã gán role cho ${this.getUserLabel(user)}.`, async () => {
       await this.userService.assignRole(user.id, roleId);
       this.clearSelectedRole(user.id);
       await this.reloadUsers();
@@ -125,17 +130,17 @@ export class AdminUsersComponent {
 
   async removeRole(user: AdminUser, roleCode: string) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the sua role cua tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể sửa role của tài khoản đang đăng nhập.');
       return;
     }
 
     const role = this.roles().find((item) => item.code === roleCode);
     if (!role) {
-      this.errorMessage.set('Khong tim thay role trong danh sach hien tai.');
+      this.errorMessage.set('Không tìm thấy role trong danh sách hiện tại.');
       return;
     }
 
-    await this.runAction(`Da go role ${roleCode} khoi ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã gỡ role ${roleCode} khỏi ${this.getUserLabel(user)}.`, async () => {
       await this.userService.removeRole(user.id, role.id);
       await this.reloadUsers();
     });
@@ -143,17 +148,17 @@ export class AdminUsersComponent {
 
   async assignSelectedDepartmentScope(user: AdminUser) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the sua scope cua tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể sửa scope của tài khoản đang đăng nhập.');
       return;
     }
 
     const departmentId = this.selectedDepartmentByUser()[user.id];
     if (!departmentId) {
-      this.errorMessage.set('Hay chon phong ban truoc khi gan scope.');
+      this.errorMessage.set('Hãy chọn phòng ban trước khi gán scope.');
       return;
     }
 
-    await this.runAction(`Da gan scope phong ban cho ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã gán scope phòng ban cho ${this.getUserLabel(user)}.`, async () => {
       await this.userService.assignDepartmentScope(user.id, departmentId);
       this.clearSelectedDepartment(user.id);
       await this.reloadUsers();
@@ -162,11 +167,11 @@ export class AdminUsersComponent {
 
   async removeDepartmentScope(user: AdminUser, departmentId: number) {
     if (this.isCurrentUser(user)) {
-      this.errorMessage.set('Khong the sua scope cua tai khoan dang dang nhap.');
+      this.errorMessage.set('Không thể sửa scope của tài khoản đang đăng nhập.');
       return;
     }
 
-    await this.runAction(`Da go scope phong ban khoi ${this.getUserLabel(user)}.`, async () => {
+    await this.runAction(`Đã gỡ scope phòng ban khỏi ${this.getUserLabel(user)}.`, async () => {
       await this.userService.removeDepartmentScope(user.id, departmentId);
       await this.reloadUsers();
     });
@@ -177,7 +182,7 @@ export class AdminUsersComponent {
   }
 
   getDepartmentName(departmentId: number) {
-    return this.departments().find((department) => department.id === departmentId)?.name ?? `Phong ban ${departmentId}`;
+    return this.departments().find((department) => department.id === departmentId)?.name ?? `Phòng ban ${departmentId}`;
   }
 
   getRoleName(roleCode: string, index: number, user: AdminUser) {
@@ -224,7 +229,7 @@ export class AdminUsersComponent {
         this.actionMessage.set(message);
       }
     } catch {
-      this.errorMessage.set('Thao tac that bai. Hay kiem tra quyen admin, token hoac backend API.');
+      this.errorMessage.set('Thao tác thất bại. Hãy kiểm tra quyền admin, token hoặc backend API.');
     }
   }
 }

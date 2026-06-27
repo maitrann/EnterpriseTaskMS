@@ -7,37 +7,37 @@ export const DEPARTMENT_CARD_MOCK: DepartmentCard[] = [
     members: 10,
     activeTasks: 18,
     completedTasks: 32,
-    lead: 'Nguyen Minh An',
+    lead: 'Nguyễn Minh An',
     sla: '92%',
     tone: 'blue'
   },
   {
-    name: 'Ke toan - Tai chinh',
-    description: 'Kiem soat thanh toan, doi soat chung tu va tong hop chi phi van hanh.',
+    name: 'Kế toán - Tài chính',
+    description: 'Kiểm soát thanh toán, đối soát chứng từ và tổng hợp chi phí vận hành.',
     members: 8,
     activeTasks: 12,
     completedTasks: 26,
-    lead: 'Tran Thu Ha',
+    lead: 'Trần Thu Hà',
     sla: '88%',
     tone: 'amber'
   },
   {
     name: 'Marketing',
-    description: 'Van hanh campaign, san xuat noi dung va phoi hop truyen thong noi bo.',
+    description: 'Vận hành campaign, sản xuất nội dung và phối hợp truyền thông nội bộ.',
     members: 14,
     activeTasks: 21,
     completedTasks: 19,
-    lead: 'Le Hoang Phuc',
+    lead: 'Lê Hoàng Phúc',
     sla: '85%',
     tone: 'emerald'
   },
   {
-    name: 'IT noi bo',
+    name: 'IT nội bộ',
     description: 'Hỗ trợ hệ thống, xử lý sự cố và triển khai nhu cầu công nghệ cho văn phòng.',
     members: 7,
     activeTasks: 9,
     completedTasks: 24,
-    lead: 'Pham Duc Long',
+    lead: 'Phạm Đức Long',
     sla: '95%',
     tone: 'slate'
   }

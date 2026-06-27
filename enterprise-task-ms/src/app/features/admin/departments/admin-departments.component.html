@@ -1,0 +1,198 @@
+<div class="admin-departments-shell ds-page">
+  <section class="hero ds-hero surface-card">
+    <div class="hero-copy">
+      <p class="ds-hero-kicker">Quản trị hệ thống</p>
+      <h2 class="ds-hero-title">Phòng ban và cấu trúc quản lý</h2>
+      <p class="ds-muted-text">
+        Quản lý danh mục phòng ban, quan hệ cha-con, manager và trạng thái hoạt động.
+      </p>
+    </div>
+
+    <div class="ds-action-row">
+      <button class="ds-action primary" type="button" (click)="reloadDepartments()">Tải lại</button>
+    </div>
+  </section>
+
+  <section class="summary-strip">
+    <article class="ds-metric-card surface-card-muted">
+      <span>Tổng phòng ban</span>
+      <strong>{{ departments().length }}</strong>
+      <small>Theo bộ lọc hiện tại</small>
+    </article>
+    <article class="ds-metric-card surface-card-muted">
+      <span>Đang hoạt động</span>
+      <strong>{{ activeDepartments().length }}</strong>
+      <small>Có thể nhận task và làm parent</small>
+    </article>
+    <article class="ds-metric-card surface-card-muted">
+      <span>Đã vô hiệu hóa</span>
+      <strong>{{ inactiveDepartments().length }}</strong>
+      <small>Không nên gán task mới</small>
+    </article>
+  </section>
+
+  <p class="notice success" *ngIf="actionMessage()">{{ actionMessage() }}</p>
+  <p class="notice error" *ngIf="errorMessage()">{{ errorMessage() }}</p>
+
+  <section class="department-form surface-card">
+    <div class="form-head">
+      <div>
+        <p class="mini-label">{{ editingDepartmentId() ? 'Đang cập nhật' : 'Tạo mới' }}</p>
+        <h3>{{ editingDepartmentId() ? 'Cập nhật phòng ban' : 'Thêm phòng ban' }}</h3>
+      </div>
+      <button class="ds-action" type="button" (click)="startCreate()">Làm mới form</button>
+    </div>
+
+    <div class="form-grid">
+      <label class="field compact">
+        <span>Company</span>
+        <p-select
+          styleClass="form-select"
+          optionLabel="name"
+          optionValue="id"
+          [options]="companyOptions()"
+          [ngModel]="form().companyId"
+          (ngModelChange)="updateForm('companyId', $event)"
+          [disabled]="!!editingDepartmentId()" />
+      </label>
+
+      <label class="field compact">
+        <span>Mã phòng ban</span>
+        <input
+          type="text"
+          [ngModel]="form().code ?? ''"
+          (ngModelChange)="updateForm('code', $event || null)"
+          placeholder="VD: HR" />
+      </label>
+
+      <label class="field">
+        <span>Tên phòng ban</span>
+        <input
+          type="text"
+          [ngModel]="form().name"
+          (ngModelChange)="updateForm('name', $event)"
+          placeholder="Nhập tên phòng ban" />
+      </label>
+
+      <label class="field">
+        <span>Phòng ban cha</span>
+        <p-select
+          styleClass="form-select"
+          appendTo="body"
+          placeholder="Không có parent"
+          optionLabel="name"
+          optionValue="id"
+          [showClear]="true"
+          [options]="parentOptions()"
+          [ngModel]="form().parentDepartmentId"
+          (ngModelChange)="updateForm('parentDepartmentId', $event)" />
+      </label>
+
+      <label class="field">
+        <span>Manager</span>
+        <p-select
+          styleClass="form-select"
+          appendTo="body"
+          placeholder="Chưa gán manager"
+          optionLabel="name"
+          optionValue="id"
+          [showClear]="true"
+          [options]="managerOptions()"
+          [ngModel]="form().managerId"
+          (ngModelChange)="updateForm('managerId', $event)" />
+      </label>
+
+      <label class="field description">
+        <span>Mô tả</span>
+        <textarea
+          rows="3"
+          [ngModel]="form().description ?? ''"
+          (ngModelChange)="updateForm('description', $event || null)"
+          placeholder="Mô tả ngắn về phòng ban"></textarea>
+      </label>
+    </div>
+
+    <div class="form-actions">
+      <button class="ds-action primary" type="button" (click)="saveDepartment()" [disabled]="isSaving()">
+        {{ editingDepartmentId() ? 'Cập nhật phòng ban' : 'Tạo phòng ban' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="toolbar surface-card">
+    <label class="check-field">
+      <input
+        type="checkbox"
+        [ngModel]="includeInactive()"
+        (ngModelChange)="includeInactive.set($event); applyIncludeInactive()" />
+      <span>Hiển thị phòng ban đã vô hiệu hóa</span>
+    </label>
+  </section>
+
+  <section class="department-table-card surface-card">
+    <p-table
+      styleClass="admin-prime-table"
+      [value]="departments()"
+      [paginator]="true"
+      [rows]="10"
+      [rowsPerPageOptions]="[10, 20, 50]"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Hiển thị {first}-{last} / {totalRecords}"
+      [tableStyle]="{ 'min-width': '980px' }">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Phòng ban</th>
+          <th>Parent</th>
+          <th>Manager</th>
+          <th>Số liệu</th>
+          <th>Trạng thái</th>
+          <th>Thao tác</th>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="body" let-department>
+        <tr>
+          <td class="department-cell">
+            <p class="mini-label">{{ department.code || ('ID ' + department.id) }}</p>
+            <strong>{{ department.name }}</strong>
+            <small>{{ department.description || 'Chưa có mô tả' }}</small>
+          </td>
+          <td>{{ department.parentDepartmentName || 'Root' }}</td>
+          <td>{{ department.managerName || 'Chưa gán' }}</td>
+          <td>
+            <div class="metric-stack">
+              <span>{{ department.memberCount }} thành viên</span>
+              <span>{{ department.activeTaskCount }} task active</span>
+            </div>
+          </td>
+          <td>
+            <p-tag
+              [value]="department.isActive ? 'Active' : 'Inactive'"
+              [severity]="getStatusSeverity(department)" />
+          </td>
+          <td class="actions-cell">
+            <p-button
+              label="Sửa"
+              size="small"
+              severity="secondary"
+              [outlined]="true"
+              (onClick)="editDepartment(department)" />
+            <p-button
+              label="Vô hiệu hóa"
+              size="small"
+              severity="danger"
+              [outlined]="true"
+              [disabled]="!department.isActive || isSaving()"
+              (onClick)="deactivateDepartment(department)" />
+          </td>
+        </tr>
+      </ng-template>
+
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="6" class="empty-table">Không có phòng ban phù hợp.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+</div>

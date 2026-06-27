@@ -1,249 +1,84 @@
 .ui-custom-select {
-  position: relative;
-}
-
-.select-trigger {
+  display: flex;
   width: 100%;
-  min-height: 46px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border: 1px solid var(--etms-border-strong);
-  border-radius: 8px;
-  background: var(--etms-surface);
-  color: var(--etms-text-primary);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
-}
-
-.select-trigger:hover,
-.select-trigger.is-open {
-  border-color: rgba(37, 99, 235, 0.42);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-}
-
-.trigger-copy {
-  flex: 1;
-  display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  gap: 6px;
 }
 
-.trigger-label {
+.helper-label {
   color: var(--etms-text-muted);
   font-size: 0.7rem;
   font-weight: 700;
 }
 
-.trigger-copy strong {
-  color: var(--etms-text-primary);
-  font-size: 0.88rem;
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.ui-custom-select.is-disabled {
+  opacity: 0.6;
 }
 
-.trigger-copy strong.is-placeholder {
-  color: var(--etms-text-muted);
-}
-
-.trigger-meta {
-  display: inline-grid;
-  place-items: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: 8px;
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
-  font-size: 0.8rem;
-  font-weight: 700;
-}
-
-.trigger-arrow {
-  position: relative;
-  width: 26px;
-  height: 26px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 8px;
-  background: rgba(15, 23, 42, 0.04);
-  flex-shrink: 0;
-  transition: transform 180ms ease, background-color 180ms ease;
-}
-
-.trigger-arrow::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid var(--etms-text-muted);
-  border-bottom: 2px solid var(--etms-text-muted);
-  transform: translateY(-2px) rotate(45deg);
-}
-
-.select-trigger.is-open .trigger-arrow {
-  background: rgba(37, 99, 235, 0.1);
-  transform: rotate(180deg);
-}
-
-.select-panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  z-index: 420;
-  padding: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 10px;
-  background: var(--etms-surface);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
-}
-
-.panel-search {
-  margin-bottom: 10px;
-}
-
-.panel-search-input {
-  width: 100%;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 8px;
-  background: var(--etms-bg-app);
-  color: var(--etms-text-primary);
-  outline: 0;
-}
-
-.options-scroll {
-  max-height: min(260px, calc(100vh - 260px));
-  overflow-y: auto;
-  padding-right: 2px;
-  scrollbar-width: thin;
-}
-
-.option-group + .option-group {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
-}
-
-.group-label {
-  margin-bottom: 6px;
-  padding: 0 4px;
-  color: var(--etms-text-muted);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.select-option {
-  width: 100%;
+.select-option-template {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 8px;
-  color: var(--etms-text-primary);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 180ms ease, box-shadow 180ms ease;
-}
-
-.select-option + .select-option {
-  margin-top: 4px;
-}
-
-.select-option:hover,
-.select-option.active {
-  background: var(--etms-primary-soft);
-}
-
-.select-option.active {
-  box-shadow: inset 3px 0 0 #2563eb;
-}
-
-.option-check {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: var(--etms-surface);
-  color: #2563eb;
-  flex-shrink: 0;
-}
-
-.select-option.active .option-check {
-  border-color: #2563eb;
-  background: #2563eb;
-}
-
-.select-option.active .option-check::before {
-  content: '';
-  width: 9px;
-  height: 5px;
-  border-left: 2px solid #ffffff;
-  border-bottom: 2px solid #ffffff;
-  transform: translateY(-1px) rotate(-45deg);
-}
-
-.option-copy {
-  display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 2px;
-  min-width: 0;
 }
 
-.option-copy strong {
+.select-option-template strong {
+  color: var(--etms-text-primary);
   font-size: 0.86rem;
 }
 
-.option-copy small {
+.select-option-template small {
   color: var(--etms-text-muted);
   font-size: 0.76rem;
 }
 
-.empty-state {
-  padding: 12px;
-  border-radius: 16px;
-  background: rgba(248, 250, 252, 0.82);
+:host ::ng-deep .prime-custom-select {
+  width: 100%;
+  min-height: 46px;
+  border-color: var(--etms-border-strong);
+  border-radius: 8px;
+  background: var(--etms-surface);
+  color: var(--etms-text-primary);
+}
+
+:host ::ng-deep .prime-custom-select:not(.p-disabled):hover,
+:host ::ng-deep .prime-custom-select.p-focus {
+  border-color: rgba(37, 99, 235, 0.42);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+:host ::ng-deep .prime-custom-select .p-select-label,
+:host ::ng-deep .prime-custom-select .p-multiselect-label {
+  align-items: center;
+  color: var(--etms-text-primary);
+  font-size: 0.88rem;
+  line-height: 1.35;
+  padding: 10px 12px;
+}
+
+:host ::ng-deep .prime-custom-select .p-placeholder {
   color: var(--etms-text-muted);
-  font-size: 0.84rem;
 }
 
-.ui-custom-select.is-disabled {
-  opacity: 0.6;
-  pointer-events: none;
+:host ::ng-deep .prime-custom-select .p-select-dropdown,
+:host ::ng-deep .prime-custom-select .p-multiselect-dropdown {
+  color: var(--etms-text-muted);
 }
 
-.ui-custom-select.is-compact .select-trigger {
+:host ::ng-deep .prime-custom-select .p-multiselect-chip {
+  border-radius: 999px;
+  background: var(--etms-primary-soft);
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+:host ::ng-deep .ui-custom-select.is-compact .prime-custom-select {
   min-height: 38px;
-  padding: 7px 10px;
 }
 
-.ui-custom-select.is-compact .trigger-copy {
-  gap: 2px;
-}
-
-.ui-custom-select.is-compact .trigger-copy strong {
+:host ::ng-deep .ui-custom-select.is-compact .prime-custom-select .p-select-label,
+:host ::ng-deep .ui-custom-select.is-compact .prime-custom-select .p-multiselect-label {
   font-size: 0.82rem;
-}
-
-.ui-custom-select.is-compact .trigger-label {
-  display: none;
-}
-
-.ui-custom-select.is-compact .trigger-arrow {
-  width: 22px;
-  height: 22px;
-}
-
-.ui-custom-select.is-compact .select-panel {
-  min-width: 220px;
+  padding: 7px 10px;
 }

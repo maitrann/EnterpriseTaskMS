@@ -1,56 +1,59 @@
 <div class="admin-users-shell ds-page">
   <section class="hero ds-hero surface-card">
     <div class="hero-copy">
-      <p class="ds-hero-kicker">Quan tri he thong</p>
-      <h2 class="ds-hero-title">Nguoi dung, role va scope phong ban</h2>
+      <p class="ds-hero-kicker">Quản trị hệ thống</p>
+      <h2 class="ds-hero-title">Người dùng, role và scope phòng ban</h2>
       <p class="ds-muted-text">
-        Man hinh nay ket noi cac API P1-02 de admin khoa tai khoan, gan role va gan scope phong ban.
+        Màn hình này kết nối các API P1-02 để admin khóa tài khoản, gán role và gán scope phòng ban.
       </p>
     </div>
 
     <div class="ds-action-row">
-      <button class="ds-action primary" type="button" (click)="reloadUsers()" [disabled]="isLoading()">Tai lai</button>
+      <button class="ds-action primary" type="button" (click)="reloadUsers()" [disabled]="isLoading()">Tải lại</button>
     </div>
   </section>
 
   <section class="summary-strip">
     <article class="ds-metric-card surface-card-muted">
-      <span>Tong user</span>
+      <span>Tổng user</span>
       <strong>{{ totalItems() }}</strong>
-      <small>Theo bo loc hien tai</small>
+      <small>Theo bộ lọc hiện tại</small>
     </article>
     <article class="ds-metric-card surface-card-muted">
-      <span>Dang hoat dong</span>
+      <span>Đang hoạt động</span>
       <strong>{{ activeUsers() }}</strong>
-      <small>Trong trang hien tai</small>
+      <small>Trong trang hiện tại</small>
     </article>
     <article class="ds-metric-card surface-card-muted">
-      <span>Da khoa</span>
+      <span>Đã khóa</span>
       <strong>{{ inactiveUsers() }}</strong>
-      <small>Trong trang hien tai</small>
+      <small>Trong trang hiện tại</small>
     </article>
   </section>
 
   <section class="toolbar surface-card">
     <label class="field">
-      <span>Tim kiem</span>
+      <span>Tìm kiếm</span>
       <input
         type="search"
         [ngModel]="search()"
         (ngModelChange)="search.set($event)"
-        placeholder="Email, ho ten, ma nhan vien" />
+        placeholder="Email, họ tên, mã nhân viên" />
     </label>
 
     <label class="field compact">
-      <span>Trang thai</span>
-      <select [ngModel]="isActive()" (ngModelChange)="isActive.set($event)">
-        <option value="all">Tat ca</option>
-        <option value="active">Dang hoat dong</option>
-        <option value="inactive">Da khoa</option>
-      </select>
+      <span>Trạng thái</span>
+      <p-select
+        styleClass="toolbar-select"
+        appendTo="body"
+        optionLabel="label"
+        optionValue="value"
+        [options]="activeStatusOptions"
+        [ngModel]="isActive()"
+        (ngModelChange)="isActive.set($event)" />
     </label>
 
-    <button class="ds-action primary" type="button" (click)="applyFilters()">Ap dung</button>
+    <button class="ds-action primary" type="button" (click)="applyFilters()">Áp dụng</button>
   </section>
 
   <p class="notice success" *ngIf="actionMessage()">{{ actionMessage() }}</p>
@@ -69,16 +72,16 @@
       [rowsPerPageOptions]="rowsPerPageOptions"
       [loading]="isLoading()"
       [showCurrentPageReport]="true"
-      currentPageReportTemplate="Hien thi {first}-{last} / {totalRecords}"
+      currentPageReportTemplate="Hiển thị {first}-{last} / {totalRecords}"
       [tableStyle]="{ 'min-width': '1080px' }"
       (onLazyLoad)="onTableLazyLoad($event)">
       <ng-template pTemplate="header">
         <tr>
-          <th>Nguoi dung</th>
-          <th>Trang thai</th>
+          <th>Người dùng</th>
+          <th>Trạng thái</th>
           <th>Roles</th>
           <th>Department scopes</th>
-          <th>Thao tac</th>
+          <th>Thao tác</th>
         </tr>
       </ng-template>
 
@@ -87,13 +90,13 @@
           <td class="user-cell">
             <p class="mini-label">{{ user.employeeCode || user.email || user.id }}</p>
             <strong>{{ getUserLabel(user) }}</strong>
-            <small>{{ user.jobTitle || 'Chua co chuc danh' }} - {{ user.departmentName || 'Chua gan phong ban' }}</small>
+            <small>{{ user.jobTitle || 'Chưa có chức danh' }} - {{ user.departmentName || 'Chưa gán phòng ban' }}</small>
           </td>
 
           <td>
             <div class="state-stack">
               <p-tag [value]="user.isActive ? 'Active' : 'Locked'" [severity]="user.isActive ? 'success' : 'danger'" />
-              <span class="self-pill" *ngIf="isCurrentUser(user)">Dang dang nhap</span>
+              <span class="self-pill" *ngIf="isCurrentUser(user)">Đang đăng nhập</span>
             </div>
           </td>
 
@@ -109,14 +112,14 @@
               </span>
             </div>
             <ng-template #noRoles>
-              <p class="empty-copy">Chua co role.</p>
+              <p class="empty-copy">Chưa có role.</p>
             </ng-template>
 
             <div class="inline-action">
               <p-select
                 styleClass="cell-select"
                 appendTo="body"
-                placeholder="Chon role"
+                placeholder="Chọn role"
                 optionLabel="name"
                 optionValue="id"
                 [options]="roles()"
@@ -124,7 +127,7 @@
                 (ngModelChange)="updateSelectedRole(user.id, $event)"
                 [disabled]="isCurrentUser(user)" />
               <p-button
-                label="Gan"
+                label="Gán"
                 size="small"
                 severity="secondary"
                 [disabled]="isCurrentUser(user)"
@@ -144,14 +147,14 @@
               </span>
             </div>
             <ng-template #noScopes>
-              <p class="empty-copy">Chua co scope phong ban.</p>
+              <p class="empty-copy">Chưa có scope phòng ban.</p>
             </ng-template>
 
             <div class="inline-action">
               <p-select
                 styleClass="cell-select"
                 appendTo="body"
-                placeholder="Chon phong ban"
+                placeholder="Chọn phòng ban"
                 optionLabel="name"
                 optionValue="id"
                 [options]="departments()"
@@ -159,7 +162,7 @@
                 (ngModelChange)="updateSelectedDepartment(user.id, $event)"
                 [disabled]="isCurrentUser(user)" />
               <p-button
-                label="Gan"
+                label="Gán"
                 size="small"
                 severity="secondary"
                 [disabled]="isCurrentUser(user)"
@@ -170,7 +173,7 @@
           <td class="actions-cell">
             <p-button
               *ngIf="user.isActive"
-              label="Khoa"
+              label="Khóa"
               size="small"
               severity="danger"
               [outlined]="true"
@@ -178,7 +181,7 @@
               (onClick)="lockUser(user)" />
             <p-button
               *ngIf="!user.isActive"
-              label="Mo khoa"
+              label="Mở khóa"
               size="small"
               severity="success"
               [outlined]="true"
@@ -190,7 +193,7 @@
 
       <ng-template pTemplate="emptymessage">
         <tr>
-          <td colspan="5" class="empty-table">Khong co user phu hop voi bo loc hien tai.</td>
+          <td colspan="5" class="empty-table">Không có user phù hợp với bộ lọc hiện tại.</td>
         </tr>
       </ng-template>
     </p-table>

@@ -7,13 +7,22 @@ import {
   DEPARTMENT_DATA_SOURCE,
   DepartmentDataSource
 } from '../data-sources/department.datasource';
-import { DepartmentCard } from '../models/department-card.model';
-import { DepartmentOption } from '../models/department-card.model';
+import {
+  DepartmentCard,
+  DepartmentCreateRequest,
+  DepartmentListItem,
+  DepartmentManagerAssignmentRequest,
+  DepartmentOption,
+  DepartmentTreeNode,
+  DepartmentUpdateRequest
+} from '../models/department-card.model';
 
 @Injectable({ providedIn: 'root' })
 export class DepartmentService {
   readonly departmentCards = signal<DepartmentCard[]>([]);
   readonly departmentOptions = signal<DepartmentOption[]>([]);
+  readonly departmentList = signal<DepartmentListItem[]>([]);
+  readonly departmentTree = signal<DepartmentTreeNode[]>([]);
 
   readonly summaryCards = computed(() => {
     const departments = this.departmentCards();
@@ -60,5 +69,61 @@ export class DepartmentService {
     } catch {
       this.departmentOptions.set([]);
     }
+  }
+
+  async loadAdminList(includeInactive = true) {
+    try {
+      this.departmentList.set(
+        await firstValueFrom(
+          this.http.get<DepartmentListItem[]>(`${API_BASE_URL}/departments`, {
+            params: { includeInactive }
+          })
+        )
+      );
+    } catch {
+      this.departmentList.set([]);
+    }
+  }
+
+  async loadAdminTree(includeInactive = true) {
+    try {
+      this.departmentTree.set(
+        await firstValueFrom(
+          this.http.get<DepartmentTreeNode[]>(`${API_BASE_URL}/departments/tree`, {
+            params: { includeInactive }
+          })
+        )
+      );
+    } catch {
+      this.departmentTree.set([]);
+    }
+  }
+
+  async createDepartment(request: DepartmentCreateRequest) {
+    await firstValueFrom(this.http.post(`${API_BASE_URL}/departments`, request));
+    await this.reloadAdminContracts();
+  }
+
+  async updateDepartment(departmentId: number, request: DepartmentUpdateRequest) {
+    await firstValueFrom(this.http.put(`${API_BASE_URL}/departments/${departmentId}`, request));
+    await this.reloadAdminContracts();
+  }
+
+  async assignDepartmentManager(departmentId: number, request: DepartmentManagerAssignmentRequest) {
+    await firstValueFrom(this.http.put(`${API_BASE_URL}/departments/${departmentId}/manager`, request));
+    await this.reloadAdminContracts();
+  }
+
+  async deactivateDepartment(departmentId: number) {
+    await firstValueFrom(this.http.post(`${API_BASE_URL}/departments/${departmentId}/deactivate`, {}));
+    await this.reloadAdminContracts();
+  }
+
+  private async reloadAdminContracts() {
+    await Promise.all([
+      this.loadOptions(),
+      this.loadAdminList(),
+      this.loadAdminTree()
+    ]);
   }
 }

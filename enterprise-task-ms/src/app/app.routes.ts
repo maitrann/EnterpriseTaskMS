@@ -54,6 +54,13 @@ export const routes: Routes = [
             .then((m) => m.AdminUsersComponent)
       },
       {
+        path: 'admin/departments',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/admin/departments/admin-departments.component')
+            .then((m) => m.AdminDepartmentsComponent)
+      },
+      {
         path: '',
         redirectTo: 'dashboard',
         pathMatch: 'full'

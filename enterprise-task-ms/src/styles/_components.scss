@@ -484,6 +484,68 @@
   color: #6ee7b7;
 }
 
+:root[data-theme='dark'] .p-select-overlay,
+:root[data-theme='dark'] .p-multiselect-overlay {
+  border-color: var(--etms-border-strong) !important;
+  background: var(--etms-surface) !important;
+  color: var(--etms-text-primary) !important;
+  box-shadow: var(--etms-shadow-soft) !important;
+}
+
+:root[data-theme='dark'] .p-select-list,
+:root[data-theme='dark'] .p-multiselect-list,
+:root[data-theme='dark'] .p-select-list-container,
+:root[data-theme='dark'] .p-multiselect-list-container {
+  background: var(--etms-surface) !important;
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-option,
+:root[data-theme='dark'] .p-multiselect-option {
+  background: transparent !important;
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-option:not(.p-select-option-selected):not(.p-disabled):hover,
+:root[data-theme='dark'] .p-multiselect-option:not(.p-multiselect-option-selected):not(.p-disabled):hover,
+:root[data-theme='dark'] .p-select-option.p-focus,
+:root[data-theme='dark'] .p-multiselect-option.p-focus {
+  background: var(--etms-primary-soft) !important;
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-option-selected,
+:root[data-theme='dark'] .p-multiselect-option-selected {
+  background: var(--etms-accent-soft) !important;
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-empty-message,
+:root[data-theme='dark'] .p-multiselect-empty-message,
+:root[data-theme='dark'] .p-select-option-label,
+:root[data-theme='dark'] .p-multiselect-option-label {
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-filter,
+:root[data-theme='dark'] .p-multiselect-filter {
+  border-color: var(--etms-border-strong) !important;
+  background: var(--etms-bg-app-soft) !important;
+  color: var(--etms-text-primary) !important;
+}
+
+:root[data-theme='dark'] .p-select-filter::placeholder,
+:root[data-theme='dark'] .p-multiselect-filter::placeholder {
+  color: var(--etms-text-secondary) !important;
+}
+
+:root[data-theme='dark'] .p-select-filter-icon,
+:root[data-theme='dark'] .p-multiselect-filter-icon,
+:root[data-theme='dark'] .p-select-dropdown,
+:root[data-theme='dark'] .p-multiselect-dropdown {
+  color: var(--etms-text-secondary) !important;
+}
+
 @media (max-width: 820px) {
   .ds-hero,
   .ds-grid-3 {
