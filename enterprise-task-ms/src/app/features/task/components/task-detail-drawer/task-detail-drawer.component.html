@@ -155,6 +155,12 @@
             (ngModelChange)="cancelReason.set($event)"
             placeholder="Lý do hủy"></textarea>
           <button class="ui-button-ghost danger-action" type="button" [disabled]="!canCancel()" (click)="cancelTask()">Hủy</button>
+          <textarea
+            class="action-input"
+            [ngModel]="archiveReason()"
+            (ngModelChange)="archiveReason.set($event)"
+            placeholder="Ly do luu tru"></textarea>
+          <button class="ui-button-ghost danger-action" type="button" (click)="archiveTask()">Luu tru</button>
         </article>
 
         <article class="action-box">

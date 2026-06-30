@@ -230,11 +230,15 @@ export class TaskBoardComponent {
     this.editingTask.set(null);
   }
 
-  saveTask(updated: Task) {
-    const result = this.taskService.updateTask(updated);
+  async saveTask(updated: Task) {
+    const result = await this.taskService.updateTask(updated);
     if (!result.success) {
       this.transitionMessage.set(result.message ?? 'Không thể cập nhật công việc.');
       return;
+    }
+
+    if (result.task && this.selectedTask()?.id === result.task.id) {
+      this.selectedTask.set(result.task);
     }
 
     this.editingTask.set(null);
@@ -249,6 +253,14 @@ export class TaskBoardComponent {
   handleTaskCreated(task: Task) {
     this.selectedTask.set(task);
     this.statusView.set('all');
+    this.transitionMessage.set('');
+  }
+
+  handleTaskArchived(taskId: Task['id']) {
+    if (this.selectedTask()?.id === taskId) {
+      this.selectedTask.set(null);
+    }
+
     this.transitionMessage.set('');
   }
 

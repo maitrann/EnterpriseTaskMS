@@ -49,6 +49,8 @@ public sealed record TransferTaskAssigneeRequest(Guid AssigneeId, string? Reason
 
 public sealed record DuplicateTaskRequest(string? Title, bool ResetPeople, bool ResetAttachments);
 
+public sealed record ArchiveTaskRequest(string? Reason);
+
 public sealed record CreateTaskExtensionRequest(DateOnly RequestedDueDate, string Reason);
 
 public sealed record ReviewTaskExtensionRequest(bool Approved, string? ReviewNote);
@@ -66,3 +68,5 @@ public enum TaskCommandResult
 }
 
 public sealed record TaskCreateResult(TaskCommandResult Result, Guid? Id = null);
+
+public sealed record TaskDuplicateResult(TaskCommandResult Result, Guid? Id = null, TaskDto? Task = null);

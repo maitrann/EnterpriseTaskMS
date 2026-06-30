@@ -4,6 +4,22 @@ import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from '../constants/app.constants';
 import { EntityId } from '../models/common-id.model';
+import {
+  AddTaskCommentRequest,
+  ArchiveTaskRequest,
+  CreateSubTaskRequest,
+  CreateTaskExtensionRequest,
+  CreateTaskRequest,
+  DuplicateTaskRequest,
+  ReviewTaskExtensionRequest,
+  TaskCreateResponse,
+  TaskDuplicateResponse,
+  TaskMutationResponse,
+  TransferTaskAssigneeRequest,
+  UpdateSubTaskRequest,
+  UpdateTaskRequest,
+  UpdateTaskStatusRequest
+} from '../models/task-api-contract.model';
 import { TaskFormOptions } from '../models/task-form.model';
 import { TaskActivity } from '../models/task-activity.model';
 import { Task } from '../models/task.model';
@@ -22,47 +38,57 @@ export class TaskApiClient {
     return { tasks, activities, formOptions };
   }
 
-  createTask(payload: unknown) {
-    return firstValueFrom(this.http.post<{ id: EntityId }>(`${API_BASE_URL}/tasks`, payload));
+  getTask(taskId: EntityId) {
+    return firstValueFrom(this.http.get<Task>(`${API_BASE_URL}/tasks/${taskId}`));
   }
 
-  updateTask(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.put(`${API_BASE_URL}/tasks/${taskId}`, payload));
+  createTask(payload: CreateTaskRequest) {
+    return firstValueFrom(this.http.post<TaskCreateResponse>(`${API_BASE_URL}/tasks`, payload));
   }
 
-  updateStatus(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/status`, payload));
+  updateTask(taskId: EntityId, payload: UpdateTaskRequest) {
+    return firstValueFrom(this.http.put<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}`, payload));
   }
 
-  transferAssignee(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/assignee`, payload));
+  updateStatus(taskId: EntityId, payload: UpdateTaskStatusRequest) {
+    return firstValueFrom(this.http.post<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/status`, payload));
   }
 
-  duplicateTask(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/duplicate`, payload));
+  transferAssignee(taskId: EntityId, payload: TransferTaskAssigneeRequest) {
+    return firstValueFrom(this.http.post<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/assignee`, payload));
   }
 
-  addComment(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/comments`, payload));
+  duplicateTask(taskId: EntityId, payload: DuplicateTaskRequest) {
+    return firstValueFrom(this.http.post<TaskDuplicateResponse>(`${API_BASE_URL}/tasks/${taskId}/duplicate`, payload));
   }
 
-  requestExtension(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests`, payload));
+  archiveTask(taskId: EntityId, payload: ArchiveTaskRequest) {
+    return firstValueFrom(this.http.post<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/archive`, payload));
   }
 
-  reviewExtension(taskId: EntityId, requestId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, payload));
+  addComment(taskId: EntityId, payload: AddTaskCommentRequest) {
+    return firstValueFrom(this.http.post<TaskCreateResponse>(`${API_BASE_URL}/tasks/${taskId}/comments`, payload));
   }
 
-  createSubtask(taskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.post(`${API_BASE_URL}/tasks/${taskId}/subtasks`, payload));
+  requestExtension(taskId: EntityId, payload: CreateTaskExtensionRequest) {
+    return firstValueFrom(this.http.post<TaskCreateResponse>(`${API_BASE_URL}/tasks/${taskId}/extension-requests`, payload));
   }
 
-  updateSubtask(taskId: EntityId, subtaskId: EntityId, payload: unknown) {
-    return firstValueFrom(this.http.put(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, payload));
+  reviewExtension(taskId: EntityId, requestId: EntityId, payload: ReviewTaskExtensionRequest) {
+    return firstValueFrom(
+      this.http.post<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/extension-requests/${requestId}/review`, payload)
+    );
+  }
+
+  createSubtask(taskId: EntityId, payload: CreateSubTaskRequest) {
+    return firstValueFrom(this.http.post<TaskCreateResponse>(`${API_BASE_URL}/tasks/${taskId}/subtasks`, payload));
+  }
+
+  updateSubtask(taskId: EntityId, subtaskId: EntityId, payload: UpdateSubTaskRequest) {
+    return firstValueFrom(this.http.put<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`, payload));
   }
 
   deleteSubtask(taskId: EntityId, subtaskId: EntityId) {
-    return firstValueFrom(this.http.delete(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`));
+    return firstValueFrom(this.http.delete<TaskMutationResponse>(`${API_BASE_URL}/tasks/${taskId}/subtasks/${subtaskId}`));
   }
 }

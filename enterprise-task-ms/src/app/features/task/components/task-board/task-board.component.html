@@ -123,6 +123,7 @@
   [formOptions]="formOptions()"
   (taskChanged)="handleTaskChanged($event)"
   (taskCreated)="handleTaskCreated($event)"
+  (taskArchived)="handleTaskArchived($event)"
   (close)="closeDrawer()"></app-task-detail-drawer>
 
 <app-task-edit-modal

@@ -57,6 +57,9 @@ export interface Task {
   parentCompletionSuggested?: boolean;
   estimatedHours?: number;
   actualHours?: number;
+  archivedAt?: Date;
+  archivedBy?: EntityId;
+  archiveReason?: string;
   createdAt: Date;
   updatedAt?: Date;
 }

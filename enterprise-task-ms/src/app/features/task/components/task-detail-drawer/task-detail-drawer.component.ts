@@ -45,6 +45,7 @@ export class TaskDetailDrawerComponent {
   @Output() close = new EventEmitter<void>();
   @Output() taskChanged = new EventEmitter<Task>();
   @Output() taskCreated = new EventEmitter<Task>();
+  @Output() taskArchived = new EventEmitter<EntityId>();
 
   readonly subtasks = signal<SubTask[]>([]);
   readonly taskComments = signal<TaskComment[]>([]);
@@ -63,6 +64,7 @@ export class TaskDetailDrawerComponent {
   readonly transferReason = signal('');
   readonly completionNote = signal('');
   readonly cancelReason = signal('');
+  readonly archiveReason = signal('');
   readonly extensionReviewNote = signal('');
 
   readonly progress = computed(() => {
@@ -271,15 +273,25 @@ export class TaskDetailDrawerComponent {
     this.cancelReason.set('');
   }
 
-  duplicateTask() {
-    this.applyCreateResult(this.taskService.duplicateTask(this.task.id), 'Đã sao chép công việc.');
+  async duplicateTask() {
+    this.applyCreateResult(await this.taskService.duplicateTask(this.task.id), 'Đã sao chép công việc.');
   }
 
-  createSimilarTask() {
+  async createSimilarTask() {
     this.applyCreateResult(
-      this.taskService.createSimilarTask(this.task.id),
+      await this.taskService.createSimilarTask(this.task.id),
       'Đã tạo công việc tương tự.'
     );
+  }
+
+  async archiveTask() {
+    const result = await this.taskService.archiveTask(this.task.id, this.archiveReason());
+    this.actionMessage.set(result.success ? 'Da luu tru cong viec.' : result.message ?? 'Khong the luu tru cong viec.');
+
+    if (result.success) {
+      this.taskArchived.emit(this.task.id);
+      this.close.emit();
+    }
   }
 
   closeDrawer() {
@@ -373,6 +385,7 @@ export class TaskDetailDrawerComponent {
     this.transferReason.set('');
     this.completionNote.set('');
     this.cancelReason.set('');
+    this.archiveReason.set('');
     this.extensionReviewNote.set('');
   }
 

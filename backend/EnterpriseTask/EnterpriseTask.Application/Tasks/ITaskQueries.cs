@@ -6,6 +6,8 @@ public interface ITaskQueries
 {
     Task<IReadOnlyList<TaskDto>> GetTasksAsync(Guid actorUserId, CancellationToken cancellationToken);
 
+    Task<TaskDto?> GetTaskAsync(Guid actorUserId, Guid taskId, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<TaskActivityDto>> GetActivitiesAsync(Guid actorUserId, CancellationToken cancellationToken);
 
     Task<TaskFormOptionsDto> GetFormOptionsAsync(Guid actorUserId, CancellationToken cancellationToken);
@@ -21,7 +23,9 @@ public interface ITaskCommands
 
     Task<TaskCommandResult> TransferAssigneeAsync(Guid actorUserId, Guid taskId, TransferTaskAssigneeRequest request, CancellationToken cancellationToken);
 
-    Task<TaskCreateResult> DuplicateAsync(Guid actorUserId, Guid taskId, DuplicateTaskRequest request, CancellationToken cancellationToken);
+    Task<TaskDuplicateResult> DuplicateAsync(Guid actorUserId, Guid taskId, DuplicateTaskRequest request, CancellationToken cancellationToken);
+
+    Task<TaskCommandResult> ArchiveAsync(Guid actorUserId, Guid taskId, ArchiveTaskRequest request, CancellationToken cancellationToken);
 
     Task<TaskCreateResult> AddCommentAsync(Guid actorUserId, Guid taskId, AddTaskCommentRequest request, CancellationToken cancellationToken);
 

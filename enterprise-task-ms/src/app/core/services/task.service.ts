@@ -7,6 +7,7 @@ import {
   getTaskStatusLabel
 } from '../constants/task-status.constants';
 import { EntityId } from '../models/common-id.model';
+import { DuplicateTaskRequest, UpdateTaskRequest } from '../models/task-api-contract.model';
 import { CreateTaskInput, TaskFormOptions } from '../models/task-form.model';
 import { TaskActivity } from '../models/task-activity.model';
 import { SubTask, SubTaskInput } from '../models/subtask.model';
@@ -259,8 +260,7 @@ export class TaskService {
         this.taskApi
         .requestExtension(taskId, {
           requestedDueDate: this.toApiDate(dueDate),
-          reason: note,
-          requestedByUserId: this.authService.user()?.id ?? 1
+          reason: note
         })
       );
     }
@@ -323,7 +323,6 @@ export class TaskService {
         this.taskApi
         .reviewExtension(taskId, requestId, {
           approved: true,
-          reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
       );
@@ -383,7 +382,6 @@ export class TaskService {
         this.taskApi
         .reviewExtension(taskId, requestId, {
           approved: false,
-          reviewedByUserId: this.authService.user()?.id ?? 1,
           reviewNote
         })
       );
@@ -796,7 +794,7 @@ export class TaskService {
       return this.notFoundResult();
     }
 
-    return this.cloneTask(task, {
+    return this.duplicatePersistedTask(task, {
       title: `${task.title} (bản sao)`,
       actionType: 'duplicate_task'
     });
@@ -809,7 +807,7 @@ export class TaskService {
       return this.notFoundResult();
     }
 
-    return this.cloneTask(task, {
+    return this.duplicatePersistedTask(task, {
       title: `Tương tự - ${task.title}`,
       actionType: 'create_similar_task',
       resetPeople: true,
@@ -817,7 +815,7 @@ export class TaskService {
     });
   }
 
-  updateTask(updatedTask: Task) {
+  async updateTask(updatedTask: Task): Promise<TaskActionResult> {
     const currentTask = this.getById(updatedTask.id);
 
     if (!currentTask) {
@@ -834,29 +832,121 @@ export class TaskService {
       };
     }
 
-    this.tasks.update((tasks) =>
-      tasks.map((task) =>
-        task.id === updatedTask.id
-          ? {
-              ...updatedTask,
-              collaboratorIds: [...(updatedTask.collaboratorIds ?? [])],
-              watcherIds: [...(updatedTask.watcherIds ?? [])],
-              attachmentNames: [...(updatedTask.attachmentNames ?? [])],
-              tags: [...(updatedTask.tags ?? [])],
-              processingNotes: [...(updatedTask.processingNotes ?? [])],
-              extensionRequests: [...(updatedTask.extensionRequests ?? [])],
-              subtasks: this.cloneSubtasks(updatedTask.subtasks),
-              subtaskProgressAutoSync: updatedTask.subtaskProgressAutoSync ?? true,
-              parentCompletionSuggested: updatedTask.parentCompletionSuggested
-            }
-          : task
-      )
-    );
+    const rollbackTasks = this.tasks();
+    const rollbackActivities = this.activities();
+    const normalizedUpdate = this.normalizeEditableTask(updatedTask);
+    this.mutationError.set(null);
 
-    this.recordTaskUpdateActivities(currentTask, updatedTask);
+    try {
+      await this.taskApi.updateTask(updatedTask.id, this.toUpdateTaskRequest(normalizedUpdate));
 
+      const persistedTask = await this.taskApi
+        .getTask(updatedTask.id)
+        .then((task) => this.normalizeTask(task))
+        .catch(() => normalizedUpdate);
+
+      this.tasks.update((tasks) => tasks.map((task) => (task.id === persistedTask.id ? persistedTask : task)));
+      this.recordTaskUpdateActivities(currentTask, persistedTask);
+
+      return {
+        success: true,
+        task: persistedTask
+      };
+    } catch {
+      this.tasks.set(rollbackTasks);
+      this.activities.set(rollbackActivities);
+      this.mutationError.set('KhÃ´ng thá»ƒ lÆ°u thay Ä‘á»•i cÃ´ng viá»‡c. Tráº¡ng thÃ¡i Ä‘Ã£ Ä‘Æ°á»£c giá»¯ nguyÃªn.');
+
+      return {
+        success: false,
+        message: 'KhÃ´ng thá»ƒ lÆ°u thay Ä‘á»•i cÃ´ng viá»‡c. Vui lÃ²ng kiá»ƒm tra API hoáº·c thá»­ láº¡i.'
+      };
+    }
+  }
+
+  async archiveTask(taskId: EntityId, reason?: string): Promise<TaskActionResult> {
+    const task = this.getById(taskId);
+
+    if (!task) {
+      return this.notFoundResult();
+    }
+
+    if (!this.authService.canEditTask(task)) {
+      return {
+        success: false,
+        message: 'Ban khong co quyen luu tru cong viec cua bo phan khac.'
+      };
+    }
+
+    const rollbackTasks = this.tasks();
+    const rollbackActivities = this.activities();
+    this.mutationError.set(null);
+
+    try {
+      await this.taskApi.archiveTask(taskId, { reason: reason?.trim() || undefined });
+
+      this.tasks.update((tasks) => tasks.filter((item) => item.id !== taskId));
+      this.recordActivity(taskId, 'task_archive', undefined, reason?.trim());
+
+      return {
+        success: true,
+        task: {
+          ...task,
+          archivedAt: new Date(),
+          archiveReason: reason?.trim() || undefined,
+          updatedAt: new Date()
+        }
+      };
+    } catch {
+      this.tasks.set(rollbackTasks);
+      this.activities.set(rollbackActivities);
+      this.mutationError.set('Khong the luu tru cong viec. Trang thai da duoc giu nguyen.');
+
+      return {
+        success: false,
+        message: 'Khong the luu tru cong viec. Vui long kiem tra API hoac thu lai.'
+      };
+    }
+  }
+
+  private normalizeEditableTask(updatedTask: Task): Task {
     return {
-      success: true
+      ...updatedTask,
+      collaboratorIds: [...(updatedTask.collaboratorIds ?? [])],
+      watcherIds: [...(updatedTask.watcherIds ?? [])],
+      attachmentNames: [...(updatedTask.attachmentNames ?? [])],
+      tags: [...(updatedTask.tags ?? [])],
+      processingNotes: [...(updatedTask.processingNotes ?? [])],
+      extensionRequests: [...(updatedTask.extensionRequests ?? [])],
+      subtasks: this.cloneSubtasks(updatedTask.subtasks),
+      subtaskProgressAutoSync: updatedTask.subtaskProgressAutoSync ?? true,
+      parentCompletionSuggested: updatedTask.parentCompletionSuggested,
+      updatedAt: updatedTask.updatedAt ?? new Date()
+    };
+  }
+
+  private toUpdateTaskRequest(task: Task): UpdateTaskRequest {
+    return {
+      title: task.title.trim(),
+      description: task.description?.trim(),
+      taskType: task.taskType,
+      projectId: task.projectId,
+      parentTaskId: task.parentTaskId,
+      departmentId: task.departmentId,
+      assigneeId: task.assigneeId,
+      statusId: task.statusId,
+      priorityId: task.priorityId,
+      startDate: this.toApiDate(task.startDate),
+      dueDate: this.toApiDate(task.dueDate),
+      progress: this.normalizeProgress(task.progress),
+      estimatedHours: task.estimatedHours,
+      actualHours: task.actualHours,
+      source: task.source,
+      urgencyLevel: task.urgencyLevel,
+      securityLevel: task.securityLevel,
+      collaboratorIds: task.collaboratorIds ?? [],
+      watcherIds: task.watcherIds ?? [],
+      tags: task.tags ?? []
     };
   }
 
@@ -917,7 +1007,7 @@ export class TaskService {
     };
   }
 
-  private cloneTask(
+  private async duplicatePersistedTask(
     task: Task,
     options: {
       title: string;
@@ -925,7 +1015,7 @@ export class TaskService {
       resetPeople?: boolean;
       resetAttachments?: boolean;
     }
-  ): TaskActionResult {
+  ): Promise<TaskActionResult> {
     if (!this.authService.canEditTask(task)) {
       return {
         success: false,
@@ -933,51 +1023,37 @@ export class TaskService {
       };
     }
 
-    const nextId = this.createLocalId();
-    const now = new Date();
-    const clonedTask: Task = {
-      ...task,
-      id: nextId,
-      code: `CV-${this.formatLocalCode(nextId)}`,
-      title: options.title,
-      statusId: TASK_STATUS_IDS.MOI_TAO,
-      progress: 0,
-      assigneeId: options.resetPeople ? undefined : task.assigneeId,
-      collaboratorIds: options.resetPeople ? [] : [...(task.collaboratorIds ?? [])],
-      watcherIds: [...(task.watcherIds ?? [])],
-      attachmentNames: options.resetAttachments ? [] : [...(task.attachmentNames ?? [])],
-      tags: [...(task.tags ?? [])],
-      processingNotes: [],
-      extensionRequests: [],
-      subtasks: options.resetPeople ? [] : this.cloneSubtasksForTask(task.subtasks, nextId),
-      subtaskProgressAutoSync: task.subtaskProgressAutoSync ?? true,
-      parentCompletionSuggested: false,
-      actualHours: 0,
-      createdAt: now,
-      updatedAt: now
-    };
-
     const rollbackTasks = this.tasks();
     const rollbackActivities = this.activities();
-
-    this.tasks.update((tasks) => [clonedTask, ...tasks]);
-    this.recordActivity(task.id, options.actionType, task.code, clonedTask.code);
-    this.recordActivity(clonedTask.id, 'CREATE_TASK', undefined, clonedTask.title);
-
-    this.persistTaskMutation(
-      this.taskApi.duplicateTask(task.id, {
-        title: options.title,
-        resetPeople: options.resetPeople ?? false,
-        resetAttachments: options.resetAttachments ?? false
-      }),
-      rollbackTasks,
-      rollbackActivities
-    );
-
-    return {
-      success: true,
-      task: clonedTask
+    const payload: DuplicateTaskRequest = {
+      title: options.title,
+      resetPeople: options.resetPeople ?? false,
+      resetAttachments: options.resetAttachments ?? false
     };
+    this.mutationError.set(null);
+
+    try {
+      const response = await this.taskApi.duplicateTask(task.id, payload);
+      const persistedTask = this.normalizeTask(response.task);
+
+      this.tasks.update((tasks) => [persistedTask, ...tasks.filter((item) => item.id !== persistedTask.id)]);
+      this.recordActivity(task.id, options.actionType, task.code, persistedTask.code);
+      this.recordActivity(persistedTask.id, 'CREATE_TASK', undefined, persistedTask.title);
+
+      return {
+        success: true,
+        task: persistedTask
+      };
+    } catch {
+      this.tasks.set(rollbackTasks);
+      this.activities.set(rollbackActivities);
+      this.mutationError.set('Khong the sao chep cong viec. Trang thai da duoc giu nguyen.');
+
+      return {
+        success: false,
+        message: 'Khong the sao chep cong viec. Vui long kiem tra API hoac thu lai.'
+      };
+    }
   }
 
   private withSubtaskRollup(task: Task): Task {
@@ -1255,6 +1331,7 @@ export class TaskService {
       dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
       createdAt: new Date(task.createdAt),
       updatedAt: task.updatedAt ? new Date(task.updatedAt) : undefined,
+      archivedAt: task.archivedAt ? new Date(task.archivedAt) : undefined,
       extensionRequests: (task.extensionRequests ?? []).map((request) => ({
         ...request,
         requestedDueDate: new Date(request.requestedDueDate),

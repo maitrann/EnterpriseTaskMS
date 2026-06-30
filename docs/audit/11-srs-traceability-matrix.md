@@ -19,12 +19,12 @@
 | DEPT-01 | Department | Hierarchy and manager management | MVP | PARTIAL - `DepartmentsController.GetCards`; read-only `PostgresDepartmentQueries` | PARTIAL - `/departments` renders cards only | IMPLEMENTED - `departments.parent_department_id`, `manager_id`, scope tables | PARTIAL - `GET /api/departments/cards` only | MISSING | PARTIAL | Hierarchy data exists but CRUD/manager assignment is unavailable | Add authorized department management endpoints and screen | L | Medium |
 | RBAC-01 | RBAC | Role and permission management | MVP | MISSING - no role/permission controller or commands | MISSING - empty `role.service.ts` and `role.guard.ts`; no screen | IMPLEMENTED - `roles`, `permissions`, `role_permissions`, seeded grants | MISSING | MISSING | PARTIAL | Runtime checks seeded permissions, but roles/grants cannot be managed in the product | Add admin APIs/UI plus change audit | XL | High |
 | RBAC-02 | RBAC | Self/related/department/all scope | MVP | IMPLEMENTED - `PostgresTaskQueries`, `PostgresTaskAccessReader`, request/department queries | PARTIAL - role/department checks exist only as UI gating | IMPLEMENTED - `user_department_scopes`, `can_access_task`, scope helpers | PARTIAL - enforced strongly for implemented task/request APIs, not a reusable policy across absent APIs | MISSING - no IDOR/scope tests | PARTIAL | PARTIAL | Good task/request scope logic, but no scope-management API and no regression tests | Add API scope tests and scope assignment management | L | Critical |
-| TASK-01 | Task | CRUD and generated code | MVP | PARTIAL - create/update exist; no delete/detail endpoint; timestamp code collision risk | PARTIAL - create is API-backed; edit can remain local-only | IMPLEMENTED - `tasks`, unique `code`, constraints/triggers | PARTIAL - create/update/list exist; delete and `GET /{id}` absent | MISSING | IMPLEMENTED - audits describe actual flow | PARTIAL | CRUD is incomplete and edit behavior is inconsistent | Add detail/delete policy, persist edit, generate collision-safe code | L | High |
+| TASK-01 | Task | CRUD and generated code | MVP | IMPLEMENTED - create/update/detail/archive exist; generated code is sequence-backed | PARTIAL - create/edit/archive are API-backed; create still has optimistic local fallback | IMPLEMENTED - `tasks`, unique `code`, constraints/triggers, sequence-backed generated codes and archive metadata | IMPLEMENTED - create/update/detail/list/archive exist; product policy is soft archive, not hard delete | PARTIAL - API tests cover detail, archive route and migration shape | IMPLEMENTED - audits describe actual flow | PARTIAL | Core CRUD is usable with soft archive, but create remains optimistic and no archived-task restore/admin view exists | Persist create like edit and define archived-task restore/admin reporting if needed | M | High |
 | TASK-02 | Task | Assignment/co-assignee/watcher | MVP | IMPLEMENTED - `CreateTaskHandler`; `PostgresTaskCommands` writes all assignment types | IMPLEMENTED - create/edit controls and task actions expose assignment fields | IMPLEMENTED - `task_assignments`, `task_assignment_type` | IMPLEMENTED - create/update/assignee routes | MISSING | PARTIAL | IMPLEMENTED | Usable end-to-end; lacks assignment-specific audit and regression tests | Add assignment audit and authorization tests | M | High |
 | TASK-03 | Task | Status workflow | MVP | PARTIAL - `TaskStatusIds` and `TaskWorkflowPolicy` now match seeded DB status IDs; command layer returns conflict for invalid transitions and sets completion/close timestamps | PARTIAL - `task-status.constants.ts` and task UI helpers now use canonical DB IDs; no E2E browser flow run | PARTIAL - lookup statuses exist and initial migration preserves canonical order; no live DB migration/status integration test run | PARTIAL - `/status` maps invalid workflow to `409 Conflict`; no API integration test yet | PARTIAL - domain tests cover seed ID order and transition matrix | IMPLEMENTED - P0-03 evidence recorded below | PARTIAL | Core ID mismatch is fixed, but live DB/API integration tests for status rows and timestamps are still missing | Add API integration tests with a configured test DB before marking implemented | M | Critical |
 | TASK-04 | Task | Filter/search/sort/paging | MVP | MISSING - list query has no filter/page DTO | PARTIAL - task board filters and searches loaded data only; no pagination | PARTIAL - indexes exist, but no supporting server query contract | MISSING | MISSING | PARTIAL | Unbounded list and client-only operations fail at production volume | Design scoped paged query with filters/sort and update UI | L | High |
 | TASK-05 | Task | Confidential task access | MVP | IMPLEMENTED - query, access reader and policy queries enforce related/admin rules | IMPLEMENTED - inaccessible rows are not surfaced; edit UI is additionally gated | IMPLEMENTED - `tasks.is_confidential`, `can_access_task` | IMPLEMENTED - checks apply to implemented task operations | MISSING | IMPLEMENTED - audits 02/03/10 document the rule | IMPLEMENTED | No known functional blocker; IDOR tests are still absent | Add employee/manager/admin confidential-task API tests | M | Critical |
-| TASK-06 | Task | Copy/similar task | MVP | PARTIAL - `DuplicateAsync` copies selected people/subtasks/attachments but omits comments/activity/extensions | PARTIAL - duplicate action exists in task workflow | IMPLEMENTED - target tables support copied records | IMPLEMENTED - `POST /api/tasks/{id}/duplicate` | MISSING | PARTIAL | Copy semantics are incomplete and attachment copying lacks a storage implementation | Define copy contract; exclude or securely clone stored files | M | Medium |
+| TASK-06 | Task | Copy/similar task | MVP | PARTIAL - `DuplicateAsync` returns persisted duplicate contract and copies selected people/subtasks/attachments, but omits comments/activity/extensions | IMPLEMENTED - duplicate/create-similar wait for API result before adding copied task | IMPLEMENTED - target tables support copied records | IMPLEMENTED - `POST /api/tasks/{id}/duplicate` returns `{ id, task }` | PARTIAL - API contract test covers duplicate response | PARTIAL | PARTIAL | Copy contract is persisted, but final semantics for comments/activity/extensions and real attachment storage remain incomplete | Finalize copy semantics once attachment storage/comment retention policy is defined | M | Medium |
 | SUBTASK-01 | Subtask | CRUD and due-date rule | MVP | IMPLEMENTED - task controller and commands implement create/update/delete | PARTIAL - detail drawer invokes subtask actions; optimistic failure can be silent | IMPLEMENTED - `subtasks` and due-date trigger | IMPLEMENTED - subtask routes exist | MISSING | IMPLEMENTED | PARTIAL | DB authorization helper context and silent FE failures are not verified end-to-end | Add friendly validation, error rollback and DB integration tests | M | High |
 | SUBTASK-02 | Subtask | Parent progress calculation | MVP | MISSING - no calculation/update flow | PARTIAL - UI displays progress but does not derive parent progress | PARTIAL - flag `subtask_progress_auto_sync` exists without implementation | MISSING | MISSING | PARTIAL | MISSING | Completing subtasks does not recalculate or suggest parent completion | Implement transaction-safe aggregate and pending-review suggestion | M | High |
 | COLLAB-01 | Collaboration | Comment and mention | MVP | PARTIAL - comment REST endpoint exists; no mention parsing/notification | PARTIAL - feedback composer and timeline exist, not threaded/realtime | PARTIAL - comment/activity structures exist; runtime activity writes are incomplete | PARTIAL - comment endpoint only | MISSING | PARTIAL | PARTIAL | Basic comments work, mentions and reliable activity propagation do not | Define comment DTO, mentions, recipients, audit and tests | L | High |
@@ -518,6 +518,99 @@ Verification:
 - Browser E2E in the in-app browser - passed for login, department create, update and deactivate against the running backend. Test row was left inactive: `E2E314284`.
 
 Traceability note: `DEPT-01` now has mutation audit coverage, controller-level API regression tests and a full authenticated browser mutation check. It remains `PARTIAL` only for direct live Supabase DB assertions over `audit_logs` and hierarchy/deactivation SQL behavior, because there is still no audit search API or dedicated DB integration test harness.
+
+### P1-04A - Typed Task API Contract
+
+Evidence added after P1-03E:
+
+- Frontend task API contracts: `enterprise-task-ms/src/app/core/models/task-api-contract.model.ts` adds explicit request/response interfaces for create/update/status/assignment/duplicate/comment/extension/subtask task APIs.
+- Unknown payload removal: `enterprise-task-ms/src/app/core/services/task-api.client.ts` no longer accepts `unknown` payloads for task mutations; each method now uses the typed request contract matching `backend/EnterpriseTask/EnterpriseTask.Application/Tasks/TaskCommandDtos.cs`.
+- Contract alignment cleanup: `TaskService` no longer sends frontend-only `requestedByUserId` and `reviewedByUserId` fields to extension request/review APIs; backend derives actor identity from the authenticated user.
+- Scope boundary: no task detail endpoint, archive/delete behavior, task code generation, duplicate semantics, paging or edit-persistence behavior was changed in this slice.
+
+Verification:
+
+- `npm.cmd run build` in `enterprise-task-ms` - passed; existing PrimeNG initial bundle budget warning remains (`582.78 kB` vs `500 kB` warning budget).
+- `npm.cmd test -- --watch=false` in `enterprise-task-ms` - passed: 2 tests.
+- `dotnet test backend\EnterpriseTask\EnterpriseTask.slnx --no-restore --no-build` - passed: 76 tests total (`4` API tests, `72` domain tests).
+- `dotnet build backend\EnterpriseTask\EnterpriseTask.slnx --no-restore` - blocked by the already-running local `EnterpriseTask.Api`/Visual Studio file locks in `EnterpriseTask.Api\bin`.
+- `dotnet build backend\EnterpriseTask\EnterpriseTask.slnx --no-restore -p:BaseOutputPath=D:\tqmtFile\MyProject\EnterpriseTaskMS\.tmp\p1-04a-build\` - passed: 0 errors, 4 existing NU1903 package vulnerability warnings in test projects.
+
+Traceability note: the `unknown` task API boundary gap is resolved for the Angular client. `TASK-01` and `TASK-06` remain `PARTIAL` until later P1-04 slices add task detail, persisted edit reload/error behavior, collision-safe code generation, archive/delete policy and duplicate contract semantics.
+
+### P1-04B - Task Detail Endpoint
+
+Evidence added after P1-04A:
+
+- Backend query contract: `backend/EnterpriseTask/EnterpriseTask.Application/Tasks/ITaskQueries.cs` adds `GetTaskAsync(actorUserId, taskId)`.
+- Scoped detail query: `backend/EnterpriseTask/EnterpriseTask.Infrastructure/Tasks/PostgresTaskQueries.cs` now has a shared task-row query used by both list and detail, including the same admin/director/related/manager scope and confidential-task predicates.
+- API endpoint: `backend/EnterpriseTask/EnterpriseTask.Api/Controllers/TasksController.cs` adds authenticated `GET /api/tasks/{id}` returning `200 OK` with `TaskDto`, `401 Unauthorized` without actor context, or `404 NotFound` when the task is missing or not visible to the actor.
+- Frontend API client: `enterprise-task-ms/src/app/core/services/task-api.client.ts` adds typed `getTask(taskId)` returning `Task`.
+- API regression tests: `backend/EnterpriseTask/EnterpriseTask.Api.Tests/Controllers/TasksControllerTests.cs` covers visible detail success, missing/inaccessible detail `404`, and missing actor `401`.
+- Scope boundary: no task board/detail drawer UI adoption, persisted edit flow, archive/delete policy, collision-safe code generation, paging or duplicate semantics were changed in this slice.
+
+Verification:
+
+- `dotnet build backend\EnterpriseTask\EnterpriseTask.slnx --no-restore -p:BaseOutputPath=D:\tqmtFile\MyProject\EnterpriseTaskMS\.tmp\p1-04b-build\` - passed: 0 errors, 4 existing NU1903 package vulnerability warnings in test projects.
+- `dotnet test backend\EnterpriseTask\EnterpriseTask.slnx --no-restore -p:BaseOutputPath=D:\tqmtFile\MyProject\EnterpriseTaskMS\.tmp\p1-04b-test\` - passed: 79 tests total (`7` API tests, `72` domain tests).
+- `npm.cmd run build` in `enterprise-task-ms` - passed; existing PrimeNG initial bundle budget warning remains (`582.78 kB` vs `500 kB` warning budget).
+- `npm.cmd test -- --watch=false` in `enterprise-task-ms` - passed: 2 tests.
+
+Traceability note: `TASK-01` now has a backend/API task detail contract and typed frontend client method. It remains `PARTIAL` until edit persistence, delete/archive policy and collision-safe task code generation are completed in later P1-04 slices.
+
+### P1-04C - Persist Edit End-to-End
+
+Evidence added after P1-04B:
+
+- Persisted edit flow: `enterprise-task-ms/src/app/core/services/task.service.ts` now makes `updateTask()` asynchronous and calls typed `TaskApiClient.updateTask()` before returning success.
+- Detail refresh after save: successful edits refresh the persisted task through `TaskApiClient.getTask()` and merge the normalized backend response back into the task signal.
+- Failure behavior: failed edit persistence returns a failure result, sets `mutationError`, keeps the previous task/activity state and lets the edit modal stay open via `TaskBoardComponent.saveTask()`.
+- Board adoption: `enterprise-task-ms/src/app/features/task/components/task-board/task-board.component.ts` now awaits `TaskService.updateTask()` and closes the edit modal only after a confirmed API save.
+- Contract boundary: this slice uses the P1-04A typed `UpdateTaskRequest`; it does not add archive/delete behavior, collision-safe code generation, duplicate semantics or server paging.
+
+Verification:
+
+- `npm.cmd run build` in `enterprise-task-ms` - passed; existing PrimeNG initial bundle budget warning remains (`582.78 kB` vs `500 kB` warning budget).
+- `npm.cmd test -- --watch=false` in `enterprise-task-ms` - passed: 2 tests.
+- `dotnet test backend\EnterpriseTask\EnterpriseTask.slnx --no-restore -p:BaseOutputPath=D:\tqmtFile\MyProject\EnterpriseTaskMS\.tmp\p1-04c-test\` - passed domain tests: 72 tests.
+- `dotnet test backend\EnterpriseTask\EnterpriseTask.Api.Tests\EnterpriseTask.Api.Tests.csproj --no-restore` - passed: 7 API tests.
+
+Traceability note: the frontend edit flow no longer reports success before the task update API confirms persistence. `TASK-01` remains `PARTIAL` until collision-safe generated codes and archive/delete policy are implemented.
+
+### P1-04D - Collision-Safe Task Code
+
+Evidence added after P1-04C:
+- Database code generation: `0003_collision_safe_task_code.sql` adds `public.task_code_seq` and `public.next_task_code()` so generated task codes use PostgreSQL sequence allocation instead of second-resolution timestamps.
+- Existing data safety: the migration advances the sequence beyond the largest existing numeric `CV-*` suffix before enabling the default, preserving existing codes and avoiding immediate unique-key collisions.
+- Insert boundary: `PostgresTaskCommands.CreateAsync()` and `DuplicateAsync()` no longer pass application-generated `CV-{timestamp}` values; `tasks.code` is assigned by the database default/trigger.
+- Trigger safety: `public.set_task_defaults()` now fills blank or missing `NEW.code` with `public.next_task_code()` before insert defaults finish.
+- Regression coverage: API test coverage reads the embedded migration and asserts the sequence, function, `nextval` use, table default and trigger guard remain present.
+
+Verification:
+- API tests passed: 8.
+- Domain tests passed: 72.
+- Restore required escalation because sandboxed NuGet access failed on SSL credential lookup.
+
+Traceability note: timestamp collision risk for generated task codes is resolved at the database contract. `TASK-01` remains `PARTIAL` until archive/delete policy and duplicate behavior are finalized.
+
+### P1-04E - Delete/Archive Policy + Duplicate Contract
+
+Evidence added after P1-04D:
+- Delete policy: product task deletion is soft archive rather than hard delete; `0004_task_archive_policy.sql` adds `archived_at`, `archived_by` and `archive_reason` columns plus active/archive indexes.
+- Archive API: `POST /api/tasks/{id}/archive` uses the same resource access plus `task.update` permission model as task edits and returns `204` on successful archive.
+- Archive visibility: task list/detail and activity queries exclude `archived_at IS NOT NULL` rows by default, so archived tasks disappear from normal board/detail flows without destroying related history.
+- Archive evidence: `PostgresTaskCommands.ArchiveAsync()` writes a `task_archive` task activity in the same transaction as the archive update.
+- Duplicate contract: `POST /api/tasks/{id}/duplicate` now returns `201 Created` with `{ id, task }`, where `task` is the persisted duplicate read through the typed detail query.
+- Frontend duplicate behavior: the task drawer now awaits duplicate/create-similar API success before inserting the copied task, so generated id/code and copied fields come from the backend contract.
+- Archived source guard: duplicate inserts only from unarchived source tasks.
+
+Verification:
+- `npm.cmd run build` passed with the existing bundle budget warning.
+- `npm.cmd test -- --watch=false` passed: 2.
+- API tests passed: 11.
+- Domain tests passed: 72.
+
+Traceability note: `TASK-01` has create/update/detail/persisted edit/archive policy and collision-safe generated codes. `TASK-06` duplicate now has a persisted response contract, but final copy semantics for comments/activity/extensions and real attachment storage remain follow-up work.
 
 ## Overall Verdict
 

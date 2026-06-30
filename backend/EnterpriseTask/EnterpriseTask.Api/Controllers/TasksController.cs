@@ -24,6 +24,18 @@ public sealed class TasksController(
             : Unauthorized();
     }
 
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<TaskDto>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        var task = await taskQueries.GetTaskAsync(actorUserId, id, cancellationToken);
+        return task is null ? NotFound() : Ok(task);
+    }
+
     [HttpGet("activities")]
     public async Task<ActionResult<IReadOnlyList<TaskActivityDto>>> GetActivities(CancellationToken cancellationToken)
     {
@@ -53,7 +65,7 @@ public sealed class TasksController(
         var result = await createTaskHandler.HandleAsync(actorUserId, request, cancellationToken);
         return result.Result == TaskCommandResult.Forbidden
             ? Forbid()
-            : CreatedAtAction(nameof(Get), new { id = result.Id }, new { id = result.Id });
+            : CreatedAtAction(nameof(GetById), new { id = result.Id }, new { id = result.Id });
     }
 
     [HttpPut("{id:guid}")]
@@ -106,7 +118,20 @@ public sealed class TasksController(
         }
 
         var result = await taskCommands.DuplicateAsync(actorUserId, id, request, cancellationToken);
-        return ToCreateActionResult(result);
+        return await ToDuplicateActionResultAsync(actorUserId, result, cancellationToken);
+    }
+
+    [HttpPost("{id:guid}/archive")]
+    [Authorize(Policy = AuthorizationPolicyNames.TaskUpdate)]
+    [EnableRateLimiting("ApiMutation")]
+    public async Task<IActionResult> Archive(Guid id, ArchiveTaskRequest request, CancellationToken cancellationToken)
+    {
+        if (!TryGetActorId(out var actorUserId))
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await taskCommands.ArchiveAsync(actorUserId, id, request, cancellationToken));
     }
 
     [HttpPost("{id:guid}/comments")]
@@ -216,6 +241,35 @@ public sealed class TasksController(
         return result.Result switch
         {
             TaskCommandResult.Success => Ok(new { id = result.Id }),
+            TaskCommandResult.Forbidden => Forbid(),
+            TaskCommandResult.Conflict => Problem(
+                statusCode: StatusCodes.Status409Conflict,
+                title: "Task mutation conflict",
+                detail: "The requested task change is not valid for the current task state."),
+            _ => Problem(
+                statusCode: StatusCodes.Status404NotFound,
+                title: "Task not found",
+                detail: "The requested task or related resource was not found.")
+        };
+    }
+
+    private async Task<ActionResult> ToDuplicateActionResultAsync(
+        Guid actorUserId,
+        TaskDuplicateResult result,
+        CancellationToken cancellationToken)
+    {
+        return result.Result switch
+        {
+            TaskCommandResult.Success => CreatedAtAction(
+                nameof(GetById),
+                new { id = result.Id },
+                new
+                {
+                    id = result.Id,
+                    task = result.Task ?? (result.Id is null
+                        ? null
+                        : await taskQueries.GetTaskAsync(actorUserId, result.Id.Value, cancellationToken))
+                }),
             TaskCommandResult.Forbidden => Forbid(),
             TaskCommandResult.Conflict => Problem(
                 statusCode: StatusCodes.Status409Conflict,

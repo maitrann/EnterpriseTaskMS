@@ -6,7 +6,21 @@ namespace EnterpriseTask.Infrastructure.Tasks;
 
 public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : PostgresQueryBase(dbContext), ITaskQueries
 {
-    public async Task<IReadOnlyList<TaskDto>> GetTasksAsync(Guid actorUserId, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<TaskDto>> GetTasksAsync(Guid actorUserId, CancellationToken cancellationToken)
+    {
+        return GetTaskRowsAsync(actorUserId, taskId: null, cancellationToken);
+    }
+
+    public async Task<TaskDto?> GetTaskAsync(Guid actorUserId, Guid taskId, CancellationToken cancellationToken)
+    {
+        var tasks = await GetTaskRowsAsync(actorUserId, taskId, cancellationToken);
+        return tasks.SingleOrDefault();
+    }
+
+    private async Task<IReadOnlyList<TaskDto>> GetTaskRowsAsync(
+        Guid actorUserId,
+        Guid? taskId,
+        CancellationToken cancellationToken)
     {
         const string tasksSql = """
             SELECT
@@ -23,57 +37,61 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
               COALESCE((SELECT array_agg(content ORDER BY created_at DESC) FROM task_comments WHERE task_id = t.id), ARRAY[]::text[]) AS processing_notes
             FROM tasks t
             WHERE
-              EXISTS (
-                SELECT 1
-                FROM user_roles ur
-                JOIN roles r ON r.id = ur.role_id
-                WHERE ur.user_id = @actorUserId
-                  AND r.code IN ('admin', 'director')
-              )
-              OR (
-                (
-                  t.created_by = @actorUserId
-                  OR t.reporter_id = @actorUserId
-                  OR EXISTS (
-                    SELECT 1
-                    FROM task_assignments ta
-                    WHERE ta.task_id = t.id
-                      AND ta.user_id = @actorUserId
-                  )
-                  OR (
-                    t.department_id IS NOT NULL
-                    AND EXISTS (
-                      SELECT 1
-                      FROM user_roles ur
-                      JOIN roles r ON r.id = ur.role_id
-                      WHERE ur.user_id = @actorUserId
-                        AND r.code = 'manager'
-                    )
-                    AND (
-                      EXISTS (
-                        SELECT 1
-                        FROM profiles me
-                        WHERE me.id = @actorUserId
-                          AND me.department_id = t.department_id
-                      )
-                      OR EXISTS (
-                        SELECT 1
-                        FROM user_department_scopes uds
-                        WHERE uds.user_id = @actorUserId
-                          AND uds.department_id = t.department_id
-                      )
-                    )
-                  )
+              (@taskId IS NULL OR t.id = @taskId)
+              AND t.archived_at IS NULL
+              AND (
+                EXISTS (
+                  SELECT 1
+                  FROM user_roles ur
+                  JOIN roles r ON r.id = ur.role_id
+                  WHERE ur.user_id = @actorUserId
+                    AND r.code IN ('admin', 'director')
                 )
-                AND (
-                  t.is_confidential = FALSE
-                  OR t.created_by = @actorUserId
-                  OR t.reporter_id = @actorUserId
-                  OR EXISTS (
-                    SELECT 1
-                    FROM task_assignments ta
-                    WHERE ta.task_id = t.id
-                      AND ta.user_id = @actorUserId
+                OR (
+                  (
+                    t.created_by = @actorUserId
+                    OR t.reporter_id = @actorUserId
+                    OR EXISTS (
+                      SELECT 1
+                      FROM task_assignments ta
+                      WHERE ta.task_id = t.id
+                        AND ta.user_id = @actorUserId
+                    )
+                    OR (
+                      t.department_id IS NOT NULL
+                      AND EXISTS (
+                        SELECT 1
+                        FROM user_roles ur
+                        JOIN roles r ON r.id = ur.role_id
+                        WHERE ur.user_id = @actorUserId
+                          AND r.code = 'manager'
+                      )
+                      AND (
+                        EXISTS (
+                          SELECT 1
+                          FROM profiles me
+                          WHERE me.id = @actorUserId
+                            AND me.department_id = t.department_id
+                        )
+                        OR EXISTS (
+                          SELECT 1
+                          FROM user_department_scopes uds
+                          WHERE uds.user_id = @actorUserId
+                            AND uds.department_id = t.department_id
+                        )
+                      )
+                    )
+                  )
+                  AND (
+                    t.is_confidential = FALSE
+                    OR t.created_by = @actorUserId
+                    OR t.reporter_id = @actorUserId
+                    OR EXISTS (
+                      SELECT 1
+                      FROM task_assignments ta
+                      WHERE ta.task_id = t.id
+                        AND ta.user_id = @actorUserId
+                    )
                   )
                 )
               )
@@ -112,7 +130,7 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
             reader.GetNullableDecimal("actual_hours"),
             reader.GetDateTimeOffsetValue("created_at"),
             reader.GetNullableDateTimeOffset("updated_at")),
-            [("@actorUserId", actorUserId)],
+            [("@actorUserId", actorUserId), ("@taskId", taskId)],
             cancellationToken)).ToList();
 
         var visibleTaskIds = tasks.Select(task => task.Id).ToArray();
@@ -141,6 +159,7 @@ public sealed class PostgresTaskQueries(ApplicationDbContext dbContext) : Postgr
               SELECT 1
               FROM tasks t
               WHERE t.id = a.task_id
+                AND t.archived_at IS NULL
                 AND (
                   EXISTS (
                     SELECT 1

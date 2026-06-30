@@ -29,12 +29,11 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
         var collaborators = NormalizeUserIds(request.CollaboratorIds);
         var watchers = NormalizeUserIds(request.WatcherIds);
-        var code = $"CV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
         const string sql = """
-            INSERT INTO tasks (code, project_id, parent_task_id, title, description, task_type, department_id,
+            INSERT INTO tasks (project_id, parent_task_id, title, description, task_type, department_id,
                                status_id, priority_id, reporter_id, created_by, start_date, due_date, progress,
                                source, urgency_level, security_level, is_confidential, estimated_hours, actual_hours)
-            VALUES (@code, @projectId, @parentTaskId, @title, @description, @taskType, @departmentId,
+            VALUES (@projectId, @parentTaskId, @title, @description, @taskType, @departmentId,
                     COALESCE((SELECT id FROM task_statuses WHERE code = 'new'), 1),
                     @priorityId, @actorUserId, @actorUserId, @startDate, @dueDate, 0,
                     @source, @urgencyLevel, @securityLevel, @isConfidential, @estimatedHours, 0)
@@ -45,7 +44,6 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         {
             var taskId = await ExecuteScalarAsync<Guid>(sql,
                 [
-                    ("@code", code),
                     ("@projectId", request.ProjectId),
                     ("@parentTaskId", request.ParentTaskId),
                     ("@title", request.Title.Trim()),
@@ -290,31 +288,30 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         }, cancellationToken);
     }
 
-    public async Task<TaskCreateResult> DuplicateAsync(Guid actorUserId, Guid taskId, DuplicateTaskRequest request, CancellationToken cancellationToken)
+    public async Task<TaskDuplicateResult> DuplicateAsync(Guid actorUserId, Guid taskId, DuplicateTaskRequest request, CancellationToken cancellationToken)
     {
         if (!await taskAccessReader.HasPermissionAsync(actorUserId, PermissionCodes.TaskCreate, cancellationToken))
         {
-            return new TaskCreateResult(TaskCommandResult.Forbidden);
+            return new TaskDuplicateResult(TaskCommandResult.Forbidden);
         }
 
         if (!await taskAccessReader.CanAccessTaskAsync(actorUserId, taskId, cancellationToken))
         {
-            return new TaskCreateResult(TaskCommandResult.NotFound);
+            return new TaskDuplicateResult(TaskCommandResult.NotFound);
         }
 
-        var code = $"CV-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}";
         const string sql = """
-            INSERT INTO tasks (code, project_id, parent_task_id, title, description, task_type, source,
+            INSERT INTO tasks (project_id, parent_task_id, title, description, task_type, source,
                                department_id, status_id, priority_id, urgency_level, security_level,
                                reporter_id, created_by, start_date, due_date, progress,
                                subtask_progress_auto_sync, estimated_hours, actual_hours)
-            SELECT @code, project_id, parent_task_id, COALESCE(NULLIF(@title, ''), title || ' (copy)'),
+            SELECT project_id, parent_task_id, COALESCE(NULLIF(@title, ''), title || ' (copy)'),
                    description, task_type, source, department_id,
                    COALESCE((SELECT id FROM task_statuses WHERE code = 'new'), status_id),
                    priority_id, urgency_level, security_level, @actorUserId, @actorUserId,
                    start_date, due_date, 0, subtask_progress_auto_sync, estimated_hours, 0
             FROM tasks
-            WHERE id = @taskId
+            WHERE id = @taskId AND archived_at IS NULL
             RETURNING id;
             """;
 
@@ -322,7 +319,6 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
         {
             var duplicatedId = await ExecuteScalarAsync<Guid>(sql,
                 [
-                    ("@code", code),
                     ("@title", request.Title?.Trim()),
                     ("@actorUserId", actorUserId),
                     ("@taskId", taskId)
@@ -331,7 +327,7 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
 
             if (duplicatedId == Guid.Empty)
             {
-                return new TaskCreateResult(TaskCommandResult.NotFound);
+                return new TaskDuplicateResult(TaskCommandResult.NotFound);
             }
 
             if (!request.ResetPeople)
@@ -382,7 +378,54 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
                     cancellationToken);
             }
 
-            return new TaskCreateResult(TaskCommandResult.Success, duplicatedId);
+            await AddActivityAsync(actorUserId, taskId, "duplicate_task", taskId.ToString(), duplicatedId.ToString(), cancellationToken);
+            await AddActivityAsync(actorUserId, duplicatedId, "CREATE_TASK", taskId.ToString(), request.Title?.Trim(), cancellationToken);
+
+            return new TaskDuplicateResult(TaskCommandResult.Success, duplicatedId);
+        }, cancellationToken);
+    }
+
+    public async Task<TaskCommandResult> ArchiveAsync(Guid actorUserId, Guid taskId, ArchiveTaskRequest request, CancellationToken cancellationToken)
+    {
+        var access = await taskAccessReader.GetTaskAccessAsync(actorUserId, taskId, PermissionCodes.TaskUpdate, cancellationToken);
+        if (!access.Exists)
+        {
+            return TaskCommandResult.NotFound;
+        }
+
+        if (!access.CanAccess || !access.HasPermission)
+        {
+            return TaskCommandResult.Forbidden;
+        }
+
+        return await ExecuteInTransactionAsync(async () =>
+        {
+            var reason = request.Reason?.Trim();
+            var affected = await ExecuteAsync(
+                """
+                UPDATE tasks
+                SET archived_at = now(),
+                    archived_by = @actorUserId,
+                    archive_reason = @reason,
+                    updated_at = now()
+                WHERE id = @taskId
+                  AND archived_at IS NULL;
+                """,
+                [
+                    ("@actorUserId", actorUserId),
+                    ("@reason", string.IsNullOrWhiteSpace(reason) ? null : reason),
+                    ("@taskId", taskId)
+                ],
+                cancellationToken);
+
+            if (affected == 0)
+            {
+                return TaskCommandResult.NotFound;
+            }
+
+            await AddActivityAsync(actorUserId, taskId, "task_archive", null, reason, cancellationToken);
+
+            return TaskCommandResult.Success;
         }, cancellationToken);
     }
 
@@ -739,6 +782,29 @@ public sealed class PostgresTaskCommands(ApplicationDbContext dbContext, ITaskAc
     private async Task TouchTaskAsync(Guid taskId, CancellationToken cancellationToken)
     {
         await ExecuteAsync("UPDATE tasks SET updated_at = now() WHERE id = @taskId;", [("@taskId", taskId)], cancellationToken);
+    }
+
+    private async Task AddActivityAsync(
+        Guid actorUserId,
+        Guid taskId,
+        string actionType,
+        string? oldValue,
+        string? newValue,
+        CancellationToken cancellationToken)
+    {
+        await ExecuteAsync(
+            """
+            INSERT INTO task_activities (task_id, user_id, action_type, old_value, new_value)
+            VALUES (@taskId, @actorUserId, @actionType, @oldValue, @newValue);
+            """,
+            [
+                ("@taskId", taskId),
+                ("@actorUserId", actorUserId),
+                ("@actionType", actionType),
+                ("@oldValue", oldValue),
+                ("@newValue", newValue)
+            ],
+            cancellationToken);
     }
 
     private async Task<bool> ExtensionRequestExistsAsync(Guid taskId, Guid requestId, CancellationToken cancellationToken)

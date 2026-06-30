@@ -164,7 +164,7 @@ Do not start Phase 4 before Phase 0 authorization tests and Phase 2 audit contro
 
 - **Goal:** Finish task detail/update/delete behavior and remove local-only success paths.
 - **SRS:** TASK-01, TASK-02, TASK-06.
-- **Current gap:** No `GET /{id}` or delete; timestamp code can collide; general FE edit may remain local; payloads use `unknown`.
+- **Current gap:** Archive/delete policy and duplicate semantics remain incomplete after typed contract, detail, persisted edit and sequence-backed task codes.
 - **Backend likely affected:** `TasksController.cs`, task DTOs/interfaces/handlers, `PostgresTaskQueries.cs`, `PostgresTaskCommands.cs`.
 - **Frontend likely affected:** `task-api.client.ts`, `task.service.ts`, task models, create/edit/detail components.
 - **DB/migration:** Collision-safe code generation (sequence/function/UUID-backed scheme); decide audited soft delete versus explicit no-delete policy.
@@ -177,6 +177,11 @@ Do not start Phase 4 before Phase 0 authorization tests and Phase 2 audit contro
 - **Estimated size:** L.
 - **Definition of Done:** No `unknown` at task API boundary and no task mutation reports success before confirmed persistence.
 - **Suggested commit boundary:** Typed detail/update first; archive/delete and duplicate semantics separately.
+- **Implementation note:** P1-04A removes `unknown` payloads from the Angular task API client by introducing explicit FE request/response contracts aligned with backend task command DTOs. Behavior-changing items from P1-04 remain follow-up slices: task detail endpoint, persisted edit flow, collision-safe code generation, archive/delete policy and duplicate semantics.
+- **Implementation note:** P1-04B adds `GET /api/tasks/{id}` and a typed Angular `getTask()` client method. The backend detail query reuses the same scope and confidential-task predicate as the list query and returns `404` for missing or inaccessible tasks. UI adoption, persisted edit reload/error behavior, code generation, archive/delete and duplicate semantics remain follow-up slices.
+- **Implementation note:** P1-04C makes the Angular task edit flow wait for `PUT /api/tasks/{id}` before reporting success, then refreshes the persisted task through `GET /api/tasks/{id}` and keeps the edit modal open with an error message when persistence fails. Collision-safe code generation, archive/delete policy and duplicate semantics remain follow-up slices.
+- **Implementation note:** P1-04D replaces timestamp-based task code generation with a PostgreSQL sequence-backed `public.next_task_code()` default. Create and duplicate task commands now let the database assign `tasks.code`, and migration `0003_collision_safe_task_code.sql` initializes the sequence after existing numeric `CV-*` codes to avoid unique-key collisions. Archive/delete policy and duplicate semantics remain follow-up slices.
+- **Implementation note:** P1-04E defines the product delete policy as soft archive, not hard delete. Migration `0004_task_archive_policy.sql` adds archive metadata and indexes, `POST /api/tasks/{id}/archive` archives visible editable tasks and records activity, list/detail/activity queries hide archived tasks by default, and duplicate now returns a persisted `{ id, task }` contract that the Angular drawer awaits before adding the copy. Hard-delete recovery/admin export remains outside this slice.
 
 ### P1-05 - Scoped Paging, Filtering and Keyword Search
 
